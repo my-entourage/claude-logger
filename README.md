@@ -23,10 +23,53 @@ This data enables:
 
 ## Install
 
+### Requirements
+
+- `jq` (JSON processor) - install with `brew install jq` on macOS or `apt install jq` on Linux
+- `git` (for capturing repository state)
+
+### Quick Start
+
 ```bash
+# Clone this repo
 git clone https://github.com/ii-vo/claude-tracker.git
 cd claude-tracker
-./install.sh ~/your-project
+
+# Install to your project
+./install.sh ~/path/to/your-project
+```
+
+### What the Installer Does
+
+1. Creates `.claude/hooks/` and `.claude/sessions/` directories in your project
+2. Copies `session_start.sh` and `session_end.sh` hook scripts
+3. Creates/updates `.claude/settings.json` with hook configuration
+4. Adds `.claude/sessions/` to your `.gitignore` (session data stays local)
+
+### Install to Multiple Projects
+
+```bash
+./install.sh ~/project-one
+./install.sh ~/project-two
+./install.sh ~/project-three
+```
+
+### Verify Installation
+
+After installing, check that everything is in place:
+
+```bash
+ls -la ~/your-project/.claude/hooks/    # Should show session_start.sh and session_end.sh
+cat ~/your-project/.claude/settings.json # Should show SessionStart and SessionEnd hooks
+```
+
+### After Installation
+
+That's it! Session data is captured automatically. After your next Claude Code session, check:
+
+```bash
+ls ~/your-project/.claude/sessions/
+cat ~/your-project/.claude/sessions/*.json | jq .
 ```
 
 ## How It Works
