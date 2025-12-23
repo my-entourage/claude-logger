@@ -21,64 +21,31 @@ This data enables:
 - Comparing session outcomes across different configurations
 - Future A/B testing of config changes
 
-## Install
-
-### Requirements
-
-- `jq` (JSON processor) - install with `brew install jq` on macOS or `apt install jq` on Linux
-- `git` (for capturing repository state)
-
-### Quick Start
+## Quick Start
 
 ```bash
-# Clone this repo
-git clone https://github.com/ii-vo/claude-tracker.git
-cd claude-tracker
+# 1. Install jq (required)
+brew install jq        # macOS
+# apt install jq       # Linux
 
-# Install to your project
+# 2. Clone this repo
+git clone https://github.com/my-entourage/claude-logger.git
+cd claude-logger
+
+# 3. Install to your project
 ./install.sh ~/path/to/your-project
 ```
 
-### What the Installer Does
+That's it! Session data is captured automatically on every Claude Code session.
 
-1. Creates `.claude/hooks/` directory in your project
-2. Copies `session_start.sh` and `session_end.sh` hook scripts
-3. Creates/updates `.claude/settings.json` with hook configuration
-
-### Install to Multiple Projects
-
-```bash
-./install.sh ~/project-one
-./install.sh ~/project-two
-./install.sh ~/project-three
-```
-
-### Verify Installation
-
-After installing, check that everything is in place:
-
-```bash
-ls -la ~/your-project/.claude/hooks/    # Should show session_start.sh and session_end.sh
-cat ~/your-project/.claude/settings.json # Should show SessionStart and SessionEnd hooks
-```
-
-### After Installation
-
-That's it! Session data is captured automatically. After your next Claude Code session, check:
-
-```bash
-ls ~/your-project/.claude/sessions/{your-github-username}/
-cat ~/your-project/.claude/sessions/{your-github-username}/*.json | jq .
-```
-
-Session files are organized by GitHub username, so each developer's sessions are tracked separately and can be committed to the repo for team visibility.
+**[Full Getting Started Guide](docs/GETTING-STARTED.md)** - detailed installation, verification, and usage instructions.
 
 ## How It Works
 
 Uses Claude Code's `SessionStart` and `SessionEnd` hooks to capture enrichment data.
 
 **Claude's data:** `~/.claude/projects/{project}/{session_id}.jsonl`
-**Our enrichment:** `.claude/sessions/{github-username}/{session_id}.json` (project-local, per-user)
+**Our enrichment:** `.claude/sessions/{session_id}.json` (project-local)
 
 Linked by `session_id`. Query both together for complete picture.
 
@@ -103,16 +70,15 @@ Linked by `session_id`. Query both together for complete picture.
     },
     "config": {
       "claude_md": "# Full CLAUDE.md content...",
-      "skills": {
-        "commit": "# Full skill content...",
-        "debug": "# Full skill content..."
-      },
+      "skills": { "commit": "..." },
+      "commands": { "test": "..." },
       "mcp_servers": ["linear-server"]
     }
   },
   "end": {
     "timestamp": "2025-12-19T21:30:00Z",
     "reason": "logout",
+    "duration_seconds": 1800,
     "git": {
       "sha": "def456",
       "dirty": false,
@@ -122,9 +88,10 @@ Linked by `session_id`. Query both together for complete picture.
 }
 ```
 
-## Development
+## Documentation
 
-See [docs/PLAN.md](docs/PLAN.md) for implementation details.
+- **[Getting Started](docs/GETTING-STARTED.md)** - Installation, usage, and troubleshooting
+- **[Implementation Plan](docs/PLAN.md)** - Technical details and architecture
 
 ## License
 
