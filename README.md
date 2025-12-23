@@ -41,10 +41,9 @@ cd claude-tracker
 
 ### What the Installer Does
 
-1. Creates `.claude/hooks/` and `.claude/sessions/` directories in your project
+1. Creates `.claude/hooks/` directory in your project
 2. Copies `session_start.sh` and `session_end.sh` hook scripts
 3. Creates/updates `.claude/settings.json` with hook configuration
-4. Adds `.claude/sessions/` to your `.gitignore` (session data stays local)
 
 ### Install to Multiple Projects
 
@@ -68,16 +67,18 @@ cat ~/your-project/.claude/settings.json # Should show SessionStart and SessionE
 That's it! Session data is captured automatically. After your next Claude Code session, check:
 
 ```bash
-ls ~/your-project/.claude/sessions/
-cat ~/your-project/.claude/sessions/*.json | jq .
+ls ~/your-project/.claude/sessions/{your-github-username}/
+cat ~/your-project/.claude/sessions/{your-github-username}/*.json | jq .
 ```
+
+Session files are organized by GitHub username, so each developer's sessions are tracked separately and can be committed to the repo for team visibility.
 
 ## How It Works
 
 Uses Claude Code's `SessionStart` and `SessionEnd` hooks to capture enrichment data.
 
 **Claude's data:** `~/.claude/projects/{project}/{session_id}.jsonl`
-**Our enrichment:** `.claude/sessions/{session_id}.json` (project-local)
+**Our enrichment:** `.claude/sessions/{github-username}/{session_id}.json` (project-local, per-user)
 
 Linked by `session_id`. Query both together for complete picture.
 

@@ -14,7 +14,14 @@ if [ -z "$CWD" ]; then
   CWD=$(pwd)
 fi
 
-SESSION_FILE="$CWD/.claude/sessions/$SESSION_ID.json"
+# Get GitHub username for session directory
+GITHUB_USER=$(git config user.name 2>/dev/null | tr ' ' '-' | tr '[:upper:]' '[:lower:]' || echo "unknown")
+if [ -z "$GITHUB_USER" ] || [ "$GITHUB_USER" = "unknown" ]; then
+  # Try gh CLI as fallback
+  GITHUB_USER=$(gh api user --jq '.login' 2>/dev/null || echo "unknown")
+fi
+
+SESSION_FILE="$CWD/.claude/sessions/$GITHUB_USER/$SESSION_ID.json"
 
 # Only update if session file exists
 if [ ! -f "$SESSION_FILE" ]; then

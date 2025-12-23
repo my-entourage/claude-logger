@@ -16,8 +16,15 @@ if [ -z "$CWD" ]; then
   CWD=$(pwd)
 fi
 
-# Ensure sessions directory exists (project-local)
-SESSIONS_DIR="$CWD/.claude/sessions"
+# Get GitHub username for session directory
+GITHUB_USER=$(git config user.name 2>/dev/null | tr ' ' '-' | tr '[:upper:]' '[:lower:]' || echo "unknown")
+if [ -z "$GITHUB_USER" ] || [ "$GITHUB_USER" = "unknown" ]; then
+  # Try gh CLI as fallback
+  GITHUB_USER=$(gh api user --jq '.login' 2>/dev/null || echo "unknown")
+fi
+
+# Ensure sessions directory exists (project-local, per-user)
+SESSIONS_DIR="$CWD/.claude/sessions/$GITHUB_USER"
 mkdir -p "$SESSIONS_DIR"
 
 # Check for orphaned sessions (previous crash) - mark as incomplete

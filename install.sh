@@ -18,7 +18,6 @@ fi
 
 # Create directories
 mkdir -p "$PROJECT_DIR/.claude/hooks"
-mkdir -p "$PROJECT_DIR/.claude/sessions"
 
 # Get the directory where this script lives
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -58,22 +57,9 @@ else
   cp "$HOOKS_CONFIG" "$SETTINGS_FILE"
 fi
 
-# Add .claude/sessions to .gitignore if not already there
-GITIGNORE="$PROJECT_DIR/.gitignore"
-if [ -f "$GITIGNORE" ]; then
-  if ! grep -q "^\.claude/sessions" "$GITIGNORE"; then
-    echo "" >> "$GITIGNORE"
-    echo "# Claude Tracker session data (local only)" >> "$GITIGNORE"
-    echo ".claude/sessions/" >> "$GITIGNORE"
-  fi
-else
-  echo "# Claude Tracker session data (local only)" > "$GITIGNORE"
-  echo ".claude/sessions/" >> "$GITIGNORE"
-fi
-
 echo ""
 echo "Claude Tracker installed successfully!"
 echo ""
-echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/"
-echo "Sessions are automatically captured - no action needed."
+echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/{github-username}/"
+echo "Sessions are automatically captured and can be committed to the repo."
 echo ""
