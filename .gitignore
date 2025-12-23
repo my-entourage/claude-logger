@@ -3,6 +3,3 @@ test-data/
 
 # Thoughts directory (local notes)
 thoughts/
-
-# Session data (created by hooks)
-.claude/sessions/

@@ -23,18 +23,62 @@ This data enables:
 
 ## Install
 
+### Requirements
+
+- `jq` (JSON processor) - install with `brew install jq` on macOS or `apt install jq` on Linux
+- `git` (for capturing repository state)
+
+### Quick Start
+
 ```bash
+# Clone this repo
 git clone https://github.com/ii-vo/claude-tracker.git
 cd claude-tracker
-./install.sh ~/your-project
+
+# Install to your project
+./install.sh ~/path/to/your-project
 ```
+
+### What the Installer Does
+
+1. Creates `.claude/hooks/` directory in your project
+2. Copies `session_start.sh` and `session_end.sh` hook scripts
+3. Creates/updates `.claude/settings.json` with hook configuration
+
+### Install to Multiple Projects
+
+```bash
+./install.sh ~/project-one
+./install.sh ~/project-two
+./install.sh ~/project-three
+```
+
+### Verify Installation
+
+After installing, check that everything is in place:
+
+```bash
+ls -la ~/your-project/.claude/hooks/    # Should show session_start.sh and session_end.sh
+cat ~/your-project/.claude/settings.json # Should show SessionStart and SessionEnd hooks
+```
+
+### After Installation
+
+That's it! Session data is captured automatically. After your next Claude Code session, check:
+
+```bash
+ls ~/your-project/.claude/sessions/{your-github-username}/
+cat ~/your-project/.claude/sessions/{your-github-username}/*.json | jq .
+```
+
+Session files are organized by GitHub username, so each developer's sessions are tracked separately and can be committed to the repo for team visibility.
 
 ## How It Works
 
 Uses Claude Code's `SessionStart` and `SessionEnd` hooks to capture enrichment data.
 
 **Claude's data:** `~/.claude/projects/{project}/{session_id}.jsonl`
-**Our enrichment:** `.claude/sessions/{session_id}.json` (project-local)
+**Our enrichment:** `.claude/sessions/{github-username}/{session_id}.json` (project-local, per-user)
 
 Linked by `session_id`. Query both together for complete picture.
 

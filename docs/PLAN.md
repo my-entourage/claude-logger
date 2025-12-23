@@ -47,7 +47,7 @@ After MVP implementation:
 
 1. **SessionStart hook** automatically captures git state + full config content
 2. **SessionEnd hook** captures end state and marks session complete
-3. Data stored project-locally in `.claude/sessions/` for future optimization
+3. Data stored project-locally in `.claude/sessions/{github-username}/` for future optimization
 4. Crashed sessions silently marked incomplete (detected on next session start)
 5. Zero user intervention required - all capture is automatic
 
@@ -55,7 +55,7 @@ After MVP implementation:
 
 ```bash
 # After any Claude Code session:
-cat .claude/sessions/{session_id}.json
+cat .claude/sessions/{github-username}/{session_id}.json
 
 # Should contain:
 # - start: git state, full CLAUDE.md content, all skill contents
@@ -76,7 +76,7 @@ cat .claude/sessions/{session_id}.json
 
 ## Data Schema (MVP)
 
-### Session File: `.claude/sessions/{session_id}.json`
+### Session File: `.claude/sessions/{github-username}/{session_id}.json`
 
 ```json
 {
@@ -168,8 +168,14 @@ if [ -z "$CWD" ]; then
   CWD=$(pwd)
 fi
 
-# Ensure sessions directory exists (project-local)
-SESSIONS_DIR="$CWD/.claude/sessions"
+# Get GitHub username for session directory
+GITHUB_USER=$(git config user.name 2>/dev/null | tr ' ' '-' | tr '[:upper:]' '[:lower:]' || echo "unknown")
+if [ -z "$GITHUB_USER" ] || [ "$GITHUB_USER" = "unknown" ]; then
+  GITHUB_USER=$(gh api user --jq '.login' 2>/dev/null || echo "unknown")
+fi
+
+# Ensure sessions directory exists (project-local, per-user)
+SESSIONS_DIR="$CWD/.claude/sessions/$GITHUB_USER"
 mkdir -p "$SESSIONS_DIR"
 
 # Check for orphaned sessions (previous crash) - mark as incomplete
@@ -310,7 +316,13 @@ if [ -z "$CWD" ]; then
   CWD=$(pwd)
 fi
 
-SESSION_FILE="$CWD/.claude/sessions/$SESSION_ID.json"
+# Get GitHub username for session directory
+GITHUB_USER=$(git config user.name 2>/dev/null | tr ' ' '-' | tr '[:upper:]' '[:lower:]' || echo "unknown")
+if [ -z "$GITHUB_USER" ] || [ "$GITHUB_USER" = "unknown" ]; then
+  GITHUB_USER=$(gh api user --jq '.login' 2>/dev/null || echo "unknown")
+fi
+
+SESSION_FILE="$CWD/.claude/sessions/$GITHUB_USER/$SESSION_ID.json"
 
 # Only update if session file exists
 if [ ! -f "$SESSION_FILE" ]; then
@@ -390,12 +402,12 @@ exit 0
 
 #### Automated Verification:
 - [ ] Hook scripts exist and are executable: `ls -la .claude/hooks/`
-- [ ] Start hook creates valid JSON: `echo '{"session_id":"test","cwd":"'$(pwd)'"}' | .claude/hooks/session_start.sh && jq . .claude/sessions/test.json`
-- [ ] End hook updates JSON: `echo '{"session_id":"test","cwd":"'$(pwd)'","reason":"logout"}' | .claude/hooks/session_end.sh && jq '.end' .claude/sessions/test.json`
+- [ ] Start hook creates valid JSON: `echo '{"session_id":"test","cwd":"'$(pwd)'"}' | .claude/hooks/session_start.sh && jq . .claude/sessions/$(git config user.name | tr ' ' '-' | tr '[:upper:]' '[:lower:]')/test.json`
+- [ ] End hook updates JSON: `echo '{"session_id":"test","cwd":"'$(pwd)'","reason":"logout"}' | .claude/hooks/session_end.sh && jq '.end' .claude/sessions/$(git config user.name | tr ' ' '-' | tr '[:upper:]' '[:lower:]')/test.json`
 - [ ] Non-git directory handled: Test in `/tmp`
 
 #### Manual Verification:
-- [ ] Start Claude Code session, verify `.claude/sessions/{id}.json` created
+- [ ] Start Claude Code session, verify `.claude/sessions/{github-username}/{id}.json` created
 - [ ] Verify CLAUDE.md content is captured (not just hash)
 - [ ] Verify skills are captured with full content
 - [ ] End session, verify `end` block added with correct reason
@@ -476,23 +488,10 @@ else
   cp "$HOOKS_CONFIG" "$SETTINGS_FILE"
 fi
 
-# Add .claude/sessions to .gitignore if not already there
-GITIGNORE="$PROJECT_DIR/.gitignore"
-if [ -f "$GITIGNORE" ]; then
-  if ! grep -q "^\.claude/sessions" "$GITIGNORE"; then
-    echo "" >> "$GITIGNORE"
-    echo "# Claude Tracker session data (local only)" >> "$GITIGNORE"
-    echo ".claude/sessions/" >> "$GITIGNORE"
-  fi
-else
-  echo "# Claude Tracker session data (local only)" > "$GITIGNORE"
-  echo ".claude/sessions/" >> "$GITIGNORE"
-fi
-
 echo ""
 echo "Claude Tracker installed successfully!"
 echo ""
-echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/"
+echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/{github-username}/"
 echo "Sessions are automatically captured - no action needed."
 echo ""
 ```
@@ -503,7 +502,6 @@ echo ""
 - [ ] Install script runs without errors: `./install.sh /tmp/test-project`
 - [ ] Hooks are installed: `ls -la /tmp/test-project/.claude/hooks/`
 - [ ] Settings created/updated: `jq '.hooks' /tmp/test-project/.claude/settings.json`
-- [ ] .gitignore updated: `grep sessions /tmp/test-project/.gitignore`
 
 #### Manual Verification:
 - [ ] Install on project with existing .claude/settings.json preserves other settings
@@ -544,7 +542,7 @@ Comprehensive testing of the data capture flow.
 
 1. Install to a test project: `./install.sh ~/test-project`
 2. Start Claude Code in test project
-3. Verify `.claude/sessions/{id}.json` created with correct start data
+3. Verify `.claude/sessions/{github-username}/{id}.json` created with correct start data
 4. Verify CLAUDE.md content captured (not hash)
 5. Verify skills captured with full content
 6. Make a commit during session
