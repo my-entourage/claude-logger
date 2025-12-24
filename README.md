@@ -32,11 +32,14 @@ brew install jq        # macOS
 git clone https://github.com/my-entourage/claude-logger.git
 cd claude-logger
 
-# 3. Install to your project
+# 3. Install to your project (prompts for your nickname)
 ./install.sh ~/path/to/your-project
+
+# 4. Add to your shell profile (.bashrc, .zshrc, etc.)
+export GITHUB_NICKNAME="your-nickname"
 ```
 
-That's it! Session data is captured automatically on every Claude Code session.
+Session data is captured automatically on every Claude Code session when `GITHUB_NICKNAME` is set.
 
 **[Full Getting Started Guide](docs/GETTING-STARTED.md)** - detailed installation, verification, and usage instructions.
 
@@ -45,7 +48,7 @@ That's it! Session data is captured automatically on every Claude Code session.
 Uses Claude Code's `SessionStart` and `SessionEnd` hooks to capture enrichment data.
 
 **Claude's data:** `~/.claude/projects/{project}/{session_id}.jsonl`
-**Our enrichment:** `.claude/sessions/{session_id}.json` (project-local)
+**Our enrichment:** `.claude/sessions/{nickname}/{session_id}.json` (project-local, per-user)
 
 Linked by `session_id`. Query both together for complete picture.
 
