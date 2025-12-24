@@ -19,6 +19,24 @@ if ! command -v jq &>/dev/null; then
 fi
 
 #######################################
+# Nickname validation
+# Returns 0 if valid, 1 if invalid
+# Valid: 1-39 chars, lowercase alphanumeric with dashes/underscores
+#######################################
+validate_nickname() {
+  local nick="$1"
+  # Check length and characters
+  if [ ${#nick} -lt 1 ] || [ ${#nick} -gt 39 ]; then
+    return 1
+  fi
+  # Check for valid characters only (lowercase alphanumeric, dash, underscore)
+  case "$nick" in
+    *[!a-z0-9_-]*) return 1 ;;
+  esac
+  return 0
+}
+
+#######################################
 # Timeout wrapper (macOS doesn't have timeout by default)
 #######################################
 run_with_timeout() {
@@ -51,9 +69,28 @@ if [ -z "$CWD" ] || [ ! -d "$CWD" ]; then
 fi
 
 #######################################
+# Get user nickname (required for tracking)
+#######################################
+GITHUB_NICKNAME="${GITHUB_NICKNAME:-}"
+if [ -z "$GITHUB_NICKNAME" ]; then
+  # No nickname configured - skip tracking silently
+  exit 0
+fi
+
+# Normalize to lowercase
+GITHUB_NICKNAME=$(echo "$GITHUB_NICKNAME" | tr '[:upper:]' '[:lower:]')
+
+# Validate nickname
+if ! validate_nickname "$GITHUB_NICKNAME"; then
+  echo "Warning: GITHUB_NICKNAME '$GITHUB_NICKNAME' is invalid." >&2
+  echo "Session tracking skipped." >&2
+  exit 0
+fi
+
+#######################################
 # Locate session file
 #######################################
-SESSION_FILE="$CWD/.claude/sessions/$SESSION_ID.json"
+SESSION_FILE="$CWD/.claude/sessions/$GITHUB_NICKNAME/$SESSION_ID.json"
 
 # Only update if session file exists and is readable
 if [ ! -f "$SESSION_FILE" ] || [ ! -r "$SESSION_FILE" ]; then

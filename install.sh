@@ -3,6 +3,24 @@ set -euo pipefail
 
 echo "Installing Claude Tracker..."
 
+#######################################
+# Nickname validation
+# Returns 0 if valid, 1 if invalid
+# Valid: 1-39 chars, lowercase alphanumeric with dashes/underscores
+#######################################
+validate_nickname() {
+  local nick="$1"
+  # Check length and characters
+  if [ ${#nick} -lt 1 ] || [ ${#nick} -gt 39 ]; then
+    return 1
+  fi
+  # Check for valid characters only (lowercase alphanumeric, dash, underscore)
+  case "$nick" in
+    *[!a-z0-9_-]*) return 1 ;;
+  esac
+  return 0
+}
+
 # Determine project directory (where to install)
 if [ -n "${1:-}" ]; then
   PROJECT_DIR="$1"
@@ -16,11 +34,61 @@ if [ ! -d "$PROJECT_DIR" ]; then
   exit 1
 fi
 
+#######################################
+# Prompt for GitHub nickname (blocking with validation)
+#######################################
+echo ""
+echo "Claude Tracker requires a nickname to organize your sessions."
+echo "This should be your GitHub username or a consistent identifier."
+echo "(Valid: 1-39 characters, lowercase letters, numbers, dashes, underscores)"
+echo ""
+
+GITHUB_NICKNAME=""
+while true; do
+  read -p "Enter your nickname: " GITHUB_NICKNAME
+
+  # Normalize to lowercase
+  GITHUB_NICKNAME=$(echo "$GITHUB_NICKNAME" | tr '[:upper:]' '[:lower:]')
+
+  if [ -z "$GITHUB_NICKNAME" ]; then
+    echo "Error: Nickname cannot be empty. Please try again."
+    continue
+  fi
+
+  if validate_nickname "$GITHUB_NICKNAME"; then
+    break
+  else
+    echo "Error: Invalid nickname '$GITHUB_NICKNAME'."
+    echo "Must be 1-39 characters, lowercase alphanumeric with dashes/underscores only."
+    echo "Please try again."
+  fi
+done
+
+echo ""
+echo "Using nickname: $GITHUB_NICKNAME"
+
 # Create directories
 mkdir -p "$PROJECT_DIR/.claude/hooks"
 
 # Get the directory where this script lives
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+#######################################
+# Check if a hook command already exists
+# Returns 0 if exists, 1 if not
+#######################################
+hook_exists() {
+  local settings_file="$1"
+  local hook_type="$2"  # "SessionStart" or "SessionEnd"
+  local command_pattern="$3"
+
+  if [ ! -f "$settings_file" ]; then
+    return 1
+  fi
+
+  # Check if any hook contains the command pattern
+  jq -e ".hooks.${hook_type}[]?.hooks[]? | select(.command | contains(\"$command_pattern\"))" "$settings_file" > /dev/null 2>&1
+}
 
 # Copy hooks
 cp "$SCRIPT_DIR/hooks/session_start.sh" "$PROJECT_DIR/.claude/hooks/"
@@ -36,21 +104,58 @@ if [ -f "$SETTINGS_FILE" ]; then
   # Backup existing
   cp "$SETTINGS_FILE" "$SETTINGS_FILE.backup.$(date +%s)"
 
-  # Check if hooks already exist
-  if jq -e '.hooks.SessionStart' "$SETTINGS_FILE" > /dev/null 2>&1; then
-    echo "Warning: SessionStart hooks already exist in settings.json"
-    echo "Appending Claude Tracker hooks to existing configuration..."
+  # Check for duplicate hooks before adding
+  START_EXISTS=false
+  END_EXISTS=false
 
-    # Append our hooks to existing arrays
-    TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG")
-    TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG")
+  if hook_exists "$SETTINGS_FILE" "SessionStart" "session_start.sh"; then
+    START_EXISTS=true
+    echo "Note: SessionStart hook already configured, skipping..."
+  fi
 
-    jq --argjson start "$TRACKER_START_HOOK" --argjson end "$TRACKER_END_HOOK" \
-      '.hooks.SessionStart += [$start] | .hooks.SessionEnd += [$end]' \
-      "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+  if hook_exists "$SETTINGS_FILE" "SessionEnd" "session_end.sh"; then
+    END_EXISTS=true
+    echo "Note: SessionEnd hook already configured, skipping..."
+  fi
+
+  if [ "$START_EXISTS" = true ] && [ "$END_EXISTS" = true ]; then
+    echo "Hooks already installed, skipping hook configuration."
+  elif [ "$START_EXISTS" = false ] && [ "$END_EXISTS" = false ]; then
+    # Neither hook exists, check if hooks object exists
+    if jq -e '.hooks.SessionStart' "$SETTINGS_FILE" > /dev/null 2>&1; then
+      # Hooks array exists but doesn't contain our hooks, append
+      TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG")
+      TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG")
+
+      jq --argjson start "$TRACKER_START_HOOK" --argjson end "$TRACKER_END_HOOK" \
+        '.hooks.SessionStart += [$start] | .hooks.SessionEnd += [$end]' \
+        "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+    else
+      # No existing hooks, merge normally
+      jq -s '.[0] * .[1]' "$SETTINGS_FILE" "$HOOKS_CONFIG" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+    fi
   else
-    # No existing hooks, merge normally
-    jq -s '.[0] * .[1]' "$SETTINGS_FILE" "$HOOKS_CONFIG" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+    # One exists but not the other - add the missing one
+    if [ "$START_EXISTS" = false ]; then
+      TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG")
+      if jq -e '.hooks.SessionStart' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --argjson start "$TRACKER_START_HOOK" '.hooks.SessionStart += [$start]' \
+          "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+      else
+        jq --argjson start "$TRACKER_START_HOOK" '.hooks.SessionStart = [$start]' \
+          "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+      fi
+    fi
+    if [ "$END_EXISTS" = false ]; then
+      TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG")
+      if jq -e '.hooks.SessionEnd' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --argjson end "$TRACKER_END_HOOK" '.hooks.SessionEnd += [$end]' \
+          "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+      else
+        jq --argjson end "$TRACKER_END_HOOK" '.hooks.SessionEnd = [$end]' \
+          "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+      fi
+    fi
   fi
 else
   # No existing settings, copy hooks config
@@ -60,6 +165,10 @@ fi
 echo ""
 echo "Claude Tracker installed successfully!"
 echo ""
-echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/{github-username}/"
-echo "Sessions are automatically captured and can be committed to the repo."
+echo "IMPORTANT: Add this to your shell profile (.bashrc, .zshrc, etc.):"
+echo ""
+echo "  export GITHUB_NICKNAME=\"$GITHUB_NICKNAME\""
+echo ""
+echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/$GITHUB_NICKNAME/"
+echo "Sessions are automatically captured when GITHUB_NICKNAME is set."
 echo ""
