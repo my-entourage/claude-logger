@@ -3,3 +3,9 @@ test-data/
 
 # Thoughts directory (local notes)
 thoughts/
+
+# macOS
+.DS_Store
+
+# Backup files
+*.backup.*
