@@ -12,7 +12,7 @@ setup_test_env
 input='{"session_id":"test-basic","cwd":"'"$TEST_TMPDIR"'","source":"startup","transcript_path":"/tmp/test.jsonl"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-basic.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-basic.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.session_id' 'test-basic' && \
    assert_json_value "$session_file" '.status' 'in_progress' && \
@@ -32,7 +32,7 @@ setup_test_env
 run_hook "session_start.sh" ""
 
 # Should not create any session file
-if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/" 2>/dev/null)" ]; then
+if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
   test_pass "No session file created for empty input"
 else
   test_fail "Session file created for empty input"
@@ -49,7 +49,7 @@ setup_test_env
 input='{"cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/" 2>/dev/null)" ]; then
+if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
   test_pass "No session file created without session_id"
 else
   test_fail "Session file created without session_id"
@@ -65,7 +65,7 @@ setup_test_env
 
 run_hook "session_start.sh" "not valid json at all"
 
-if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/" 2>/dev/null)" ]; then
+if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
   test_pass "No session file created for invalid JSON"
 else
   test_fail "Session file created for invalid JSON"
@@ -82,7 +82,7 @@ setup_test_env
 input='{"session_id":"test-nogit","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-nogit.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-nogit.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.start.git.is_repo' 'false' && \
    assert_json_value "$session_file" '.start.git.sha' ''; then
@@ -108,7 +108,7 @@ git -C "$TEST_TMPDIR" commit -q -m "Initial commit"
 input='{"session_id":"test-git","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-git.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-git.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.start.git.is_repo' 'true' && \
    assert_json_exists "$session_file" '.start.git.sha' && \
@@ -136,7 +136,7 @@ echo "modified" > "$TEST_TMPDIR/test.txt"  # Make it dirty
 input='{"session_id":"test-dirty","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-dirty.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-dirty.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.start.git.dirty' 'true' && \
    assert_json_exists "$session_file" '.start.git.dirty_files'; then
@@ -158,7 +158,7 @@ echo "This is a test." >> "$TEST_TMPDIR/CLAUDE.md"
 input='{"session_id":"test-claudemd","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-claudemd.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-claudemd.json"
 claude_md_content=$(jq -r '.start.config.claude_md' "$session_file")
 
 if assert_file_exists "$session_file" && \
@@ -179,7 +179,7 @@ setup_test_env
 input='{"session_id":"test-noclaudemd","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-noclaudemd.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-noclaudemd.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.start.config.claude_md' 'null'; then
   test_pass
@@ -199,7 +199,7 @@ head -c 153600 /dev/urandom | base64 > "$TEST_TMPDIR/CLAUDE.md"
 input='{"session_id":"test-largeclaudemd","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-largeclaudemd.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-largeclaudemd.json"
 claude_md_content=$(jq -r '.start.config.claude_md' "$session_file")
 
 if assert_file_exists "$session_file" && \
@@ -226,7 +226,7 @@ echo "# Test Skill" >> "$TEST_TMPDIR/.claude/skills/test-skill/SKILL.md"
 input='{"session_id":"test-skills","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-skills.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-skills.json"
 skill_content=$(jq -r '.start.config.skills["test-skill"]' "$session_file")
 
 if assert_file_exists "$session_file" && \
@@ -251,7 +251,7 @@ echo "Does something useful." >> "$TEST_TMPDIR/.claude/commands/test-cmd.md"
 input='{"session_id":"test-commands","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-commands.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-commands.json"
 cmd_content=$(jq -r '.start.config.commands["test-cmd"]' "$session_file")
 
 if assert_file_exists "$session_file" && \
@@ -272,7 +272,7 @@ setup_test_env
 input='{"session_id":"test-resume","cwd":"'"$TEST_TMPDIR"'","source":"resume"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-resume.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-resume.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.start.source' 'resume'; then
   test_pass
@@ -292,7 +292,7 @@ echo '{"mcpServers":{"linear":{},"github":{}}}' > "$TEST_TMPDIR/.mcp.json"
 input='{"session_id":"test-mcp","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-mcp.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-mcp.json"
 mcp_servers=$(jq -r '.start.config.mcp_servers | length' "$session_file")
 
 if assert_file_exists "$session_file" && \
@@ -311,7 +311,7 @@ test_start "session_start: marks orphaned in_progress sessions as incomplete"
 setup_test_env
 
 # Create an orphaned session (in_progress from "previous" session)
-orphan_file="$TEST_TMPDIR/.claude/sessions/orphan-session.json"
+orphan_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/orphan-session.json"
 cat > "$orphan_file" << 'EOF'
 {
   "session_id": "orphan-session",
@@ -346,7 +346,7 @@ setup_test_env
 input='{"session_id":"test-schema","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-schema.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-schema.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.schema_version' '1'; then
   test_pass
@@ -363,7 +363,7 @@ setup_test_env
 input='{"session_id":"test-transcript","cwd":"'"$TEST_TMPDIR"'","source":"startup","transcript_path":"/home/user/.claude/sessions/abc.jsonl"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-transcript.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-transcript.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.transcript_path' '/home/user/.claude/sessions/abc.jsonl'; then
   test_pass
@@ -388,7 +388,7 @@ cd "$original_dir"
 
 # The session file should be created in the fallback location
 # Since fallback is pwd, which we set to TEST_TMPDIR
-session_file="$TEST_TMPDIR/.claude/sessions/test-fallback.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-fallback.json"
 if assert_file_exists "$session_file"; then
   test_pass "Fallback to pwd worked"
 else
@@ -404,7 +404,7 @@ test_start "session_start: handles read-only sessions directory"
 setup_test_env
 
 # Make sessions directory read-only
-chmod 444 "$TEST_TMPDIR/.claude/sessions"
+chmod 444 "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME"
 
 input='{"session_id":"test-readonly","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
@@ -413,7 +413,7 @@ run_hook "session_start.sh" "$input"
 exit_code=$?
 
 # Restore permissions for cleanup
-chmod 755 "$TEST_TMPDIR/.claude/sessions"
+chmod 755 "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME"
 
 if [ $exit_code -eq 0 ]; then
   test_pass "Read-only directory handled gracefully"
@@ -434,7 +434,7 @@ echo '{}' > "$TEST_TMPDIR/.mcp.json"
 input='{"session_id":"test-empty-mcp","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-empty-mcp.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-empty-mcp.json"
 mcp_count=$(jq -r '.start.config.mcp_servers | length' "$session_file")
 
 if assert_file_exists "$session_file" && [ "$mcp_count" -eq 0 ]; then
@@ -456,7 +456,7 @@ echo 'not valid json' > "$TEST_TMPDIR/.mcp.json"
 input='{"session_id":"test-bad-mcp","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-bad-mcp.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-bad-mcp.json"
 
 # Session should still be created with empty mcp_servers
 if assert_file_exists "$session_file"; then
@@ -484,7 +484,7 @@ head -c 102399 /dev/zero | tr '\0' 'a' > "$TEST_TMPDIR/CLAUDE.md"
 input='{"session_id":"test-exact-size","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-exact-size.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-exact-size.json"
 claude_md=$(jq -r '.start.config.claude_md' "$session_file")
 
 if assert_file_exists "$session_file" && \
@@ -508,7 +508,7 @@ rm -rf "$TEST_TMPDIR/.claude/skills/test-skill"
 input='{"session_id":"test-empty-skills","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-empty-skills.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-empty-skills.json"
 skills=$(jq -r '.start.config.skills' "$session_file")
 
 if assert_file_exists "$session_file" && [ "$skills" = "{}" ]; then
@@ -530,7 +530,7 @@ echo '{"mcpServers":{}}' > "$TEST_TMPDIR/.mcp.json"
 input='{"session_id":"test-empty-mcpservers","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-empty-mcpservers.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-empty-mcpservers.json"
 mcp_count=$(jq -r '.start.config.mcp_servers | length' "$session_file")
 
 if assert_file_exists "$session_file" && [ "$mcp_count" -eq 0 ]; then
@@ -551,7 +551,7 @@ for src in "startup" "resume" "clear" "compact"; do
   input='{"session_id":"test-source-'"$src"'","cwd":"'"$TEST_TMPDIR"'","source":"'"$src"'"}'
   run_hook "session_start.sh" "$input"
 
-  session_file="$TEST_TMPDIR/.claude/sessions/test-source-$src.json"
+  session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-source-$src.json"
   if assert_file_exists "$session_file" && \
      assert_json_value "$session_file" '.start.source' "$src"; then
     test_pass
@@ -569,7 +569,7 @@ setup_test_env
 input='{"session_id":"test-no-source","cwd":"'"$TEST_TMPDIR"'"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-no-source.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-no-source.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.start.source' 'startup'; then
   test_pass

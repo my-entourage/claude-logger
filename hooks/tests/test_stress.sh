@@ -11,7 +11,7 @@ setup_test_env
 
 # Create 100 old session files
 for i in {1..100}; do
-  cat > "$TEST_TMPDIR/.claude/sessions/old-session-$i.json" << EOF
+  cat > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/old-session-$i.json" << EOF
 {
   "session_id": "old-session-$i",
   "status": "complete",
@@ -83,7 +83,7 @@ else
   elapsed_ms=$(( (end_time - start_time) * 1000 ))
 fi
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-many-configs.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-many-configs.json"
 skills_count=$(jq '.start.config.skills | keys | length' "$session_file" 2>/dev/null || echo 0)
 commands_count=$(jq '.start.config.commands | keys | length' "$session_file" 2>/dev/null || echo 0)
 
@@ -122,7 +122,7 @@ done
 start_sha=$(git -C "$TEST_TMPDIR" rev-parse HEAD~40 2>/dev/null || git -C "$TEST_TMPDIR" rev-parse HEAD)
 
 # Create session with start SHA 40 commits back
-session_file="$TEST_TMPDIR/.claude/sessions/test-many-commits.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-many-commits.json"
 cat > "$session_file" << EOF
 {
   "session_id": "test-many-commits",
@@ -175,7 +175,7 @@ else
   elapsed_ms=$(( (end_time - start_time) * 1000 ))
 fi
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-large-claude.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-large-claude.json"
 claude_md_len=$(jq -r '.start.config.claude_md | length' "$session_file" 2>/dev/null || echo 0)
 
 if [ $elapsed_ms -lt 5000 ] && [ "$claude_md_len" -gt 90000 ]; then
@@ -215,7 +215,7 @@ else
   elapsed_ms=$(( (end_time - start_time) * 1000 ))
 fi
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-dirty-stress.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-dirty-stress.json"
 dirty_count=$(jq -r '.start.git.dirty_count' "$session_file" 2>/dev/null || echo 0)
 dirty_files=$(jq -r '.start.git.dirty_files | length' "$session_file" 2>/dev/null || echo 0)
 
@@ -265,7 +265,7 @@ fi
 # Count completed sessions
 completed=0
 for i in {1..20}; do
-  status=$(jq -r '.status' "$TEST_TMPDIR/.claude/sessions/cycle-$i.json" 2>/dev/null)
+  status=$(jq -r '.status' "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/cycle-$i.json" 2>/dev/null)
   [ "$status" = "complete" ] && ((completed++))
 done
 

@@ -47,7 +47,7 @@ setup_test_env
 input='{"session_id":"test session with spaces","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test session with spaces.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test session with spaces.json"
 if [ -f "$session_file" ]; then
   test_pass "Spaces in session_id handled"
 elif [ $? -eq 0 ]; then
@@ -127,7 +127,7 @@ setup_test_env
 input='{"session_id":null,"cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/" 2>/dev/null)" ]; then
+if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
   test_pass "Null session_id rejected"
 else
   test_fail "Null session_id should be rejected"
@@ -145,9 +145,9 @@ input='{"session_id":12345,"cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
 # jq -r will coerce to string "12345" or return empty
-if [ -f "$TEST_TMPDIR/.claude/sessions/12345.json" ]; then
+if [ -f "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/12345.json" ]; then
   test_pass "Integer coerced to string"
-elif [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/" 2>/dev/null)" ]; then
+elif [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
   test_pass "Integer session_id rejected"
 else
   test_pass "Integer session_id handled"
@@ -181,7 +181,7 @@ input='{"session_id":["a","b"],"cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
 # Should reject or handle gracefully
-if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/" 2>/dev/null)" ]; then
+if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
   test_pass "Array session_id rejected"
 else
   test_pass "Array session_id handled"
@@ -199,7 +199,7 @@ input='{"session_id":{"nested":"object"},"cwd":"'"$TEST_TMPDIR"'","source":"star
 run_hook "session_start.sh" "$input"
 
 # Should reject or handle gracefully
-if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/" 2>/dev/null)" ]; then
+if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
   test_pass "Object session_id rejected"
 else
   test_pass "Object session_id handled"
@@ -216,7 +216,7 @@ setup_test_env
 input='{"session_id":"","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/" 2>/dev/null)" ]; then
+if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
   test_pass "Empty string session_id rejected"
 else
   test_fail "Empty string session_id should be rejected"
@@ -235,7 +235,7 @@ run_hook "session_start.sh" "$input"
 
 # Should handle unicode gracefully
 if [ $? -eq 0 ]; then
-  files=$(ls -1 "$TEST_TMPDIR/.claude/sessions/" 2>/dev/null | wc -l)
+  files=$(ls -1 "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null | wc -l)
   if [ "$files" -ge 1 ]; then
     test_pass "Unicode session_id created file"
   else

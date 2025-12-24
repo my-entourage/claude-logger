@@ -38,7 +38,11 @@ TEST_TMPDIR=""
 # Setup test environment
 setup_test_env() {
   TEST_TMPDIR=$(mktemp -d)
-  mkdir -p "$TEST_TMPDIR/.claude/sessions"
+
+  # Set test nickname for session tracking
+  export GITHUB_NICKNAME="test-user"
+
+  mkdir -p "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME"
   mkdir -p "$TEST_TMPDIR/.claude/hooks"
   mkdir -p "$TEST_TMPDIR/.claude/skills/test-skill"
   mkdir -p "$TEST_TMPDIR/.claude/commands"

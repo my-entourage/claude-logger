@@ -8,7 +8,7 @@
 #######################################
 create_started_session() {
   local session_id="$1"
-  local session_file="$TEST_TMPDIR/.claude/sessions/$session_id.json"
+  local session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/$session_id.json"
   local start_time="${2:-2025-01-01T12:00:00Z}"
 
   cat > "$session_file" << EOF
@@ -47,7 +47,7 @@ create_started_session "test-complete"
 input='{"session_id":"test-complete","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
 run_hook "session_end.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-complete.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-complete.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.status' 'complete' && \
    assert_json_value "$session_file" '.end.reason' 'logout' && \
@@ -66,7 +66,7 @@ create_started_session "test-empty"
 
 run_hook "session_end.sh" ""
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-empty.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-empty.json"
 # Session should remain in_progress (not updated)
 if assert_json_value "$session_file" '.status' 'in_progress'; then
   test_pass "Session unchanged with empty input"
@@ -84,7 +84,7 @@ create_started_session "test-nosid"
 input='{"cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
 run_hook "session_end.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-nosid.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-nosid.json"
 # Session should remain in_progress
 if assert_json_value "$session_file" '.status' 'in_progress'; then
   test_pass "Session unchanged without session_id"
@@ -122,7 +122,7 @@ for reason in "logout" "clear" "prompt_input_exit" "other"; do
   input='{"session_id":"test-reason-'"$reason"'","cwd":"'"$TEST_TMPDIR"'","reason":"'"$reason"'"}'
   run_hook "session_end.sh" "$input"
 
-  session_file="$TEST_TMPDIR/.claude/sessions/test-reason-$reason.json"
+  session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-reason-$reason.json"
   if assert_json_value "$session_file" '.end.reason' "$reason"; then
     test_pass
   fi
@@ -147,7 +147,7 @@ else
   input='{"session_id":"test-duration","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
   run_hook "session_end.sh" "$input"
 
-  session_file="$TEST_TMPDIR/.claude/sessions/test-duration.json"
+  session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-duration.json"
   duration=$(jq -r '.end.duration_seconds' "$session_file")
 
   # Duration should be approximately 300 seconds (5 minutes), allow some variance
@@ -167,7 +167,7 @@ test_start "session_end: is idempotent (doesn't update complete sessions)"
 setup_test_env
 
 # Create an already complete session
-session_file="$TEST_TMPDIR/.claude/sessions/test-idempotent.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-idempotent.json"
 cat > "$session_file" << 'EOF'
 {
   "session_id": "test-idempotent",
@@ -217,7 +217,7 @@ create_started_session "test-gitend"
 input='{"session_id":"test-gitend","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
 run_hook "session_end.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-gitend.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-gitend.json"
 if assert_json_exists "$session_file" '.end.git.sha' && \
    assert_json_exists "$session_file" '.end.git.dirty'; then
   test_pass
@@ -243,7 +243,7 @@ git -C "$TEST_TMPDIR" commit -q -m "Initial commit"
 start_sha=$(git -C "$TEST_TMPDIR" rev-parse HEAD)
 
 # Create session file with start SHA
-session_file="$TEST_TMPDIR/.claude/sessions/test-commits.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-commits.json"
 cat > "$session_file" << EOF
 {
   "session_id": "test-commits",
@@ -298,7 +298,7 @@ git -C "$TEST_TMPDIR" commit -q -m "Initial commit"
 start_sha=$(git -C "$TEST_TMPDIR" rev-parse HEAD)
 
 # Create session with current SHA (no new commits)
-session_file="$TEST_TMPDIR/.claude/sessions/test-nocommits.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-nocommits.json"
 cat > "$session_file" << EOF
 {
   "session_id": "test-nocommits",
@@ -333,7 +333,7 @@ setup_test_env
 create_started_session "test-nongit"
 
 # Modify the session to not have git info
-session_file="$TEST_TMPDIR/.claude/sessions/test-nongit.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-nongit.json"
 
 input='{"session_id":"test-nongit","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
 run_hook "session_end.sh" "$input"
@@ -367,7 +367,7 @@ echo "uncommitted" > "$TEST_TMPDIR/test.txt"
 input='{"session_id":"test-dirtyend","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
 run_hook "session_end.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-dirtyend.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-dirtyend.json"
 if assert_json_value "$session_file" '.end.git.dirty' 'true'; then
   test_pass
 fi
@@ -380,7 +380,7 @@ cleanup_test_env
 test_start "session_end: handles corrupted session file gracefully"
 setup_test_env
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-corrupt.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-corrupt.json"
 echo "not valid json" > "$session_file"
 
 input='{"session_id":"test-corrupt","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
@@ -419,7 +419,7 @@ git -C "$TEST_TMPDIR" add other.txt
 git -C "$TEST_TMPDIR" commit -q -m "Other branch commit"
 
 # Create session with old SHA from main
-session_file="$TEST_TMPDIR/.claude/sessions/test-branchswitch.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-branchswitch.json"
 cat > "$session_file" << EOF
 {
   "session_id": "test-branchswitch",
@@ -457,7 +457,7 @@ create_started_session "test-atomic"
 input='{"session_id":"test-atomic","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
 run_hook "session_end.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-atomic.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-atomic.json"
 
 # Verify the result is valid JSON
 if jq -e '.' "$session_file" &>/dev/null; then
@@ -476,7 +476,7 @@ setup_test_env
 
 # Create session with current timestamp
 now_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-session_file="$TEST_TMPDIR/.claude/sessions/test-zero-duration.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-zero-duration.json"
 cat > "$session_file" << EOF
 {
   "session_id": "test-zero-duration",
@@ -509,7 +509,7 @@ setup_test_env
 
 # Create session with timestamp in the "future"
 future_ts="2099-12-31T23:59:59Z"
-session_file="$TEST_TMPDIR/.claude/sessions/test-neg-duration.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-neg-duration.json"
 cat > "$session_file" << EOF
 {
   "session_id": "test-neg-duration",
@@ -553,7 +553,7 @@ if [ -z "$old_ts" ]; then
   test_skip "Could not calculate 7-day offset"
   cleanup_test_env
 else
-  session_file="$TEST_TMPDIR/.claude/sessions/test-long-session.json"
+  session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-long-session.json"
   cat > "$session_file" << EOF
 {
   "session_id": "test-long-session",
@@ -586,7 +586,7 @@ fi
 test_start "session_end: handles invalid start timestamp"
 setup_test_env
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-bad-ts.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-bad-ts.json"
 cat > "$session_file" << 'EOF'
 {
   "session_id": "test-bad-ts",
@@ -618,7 +618,7 @@ cleanup_test_env
 test_start "session_end: handles missing start.timestamp"
 setup_test_env
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-no-ts.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-no-ts.json"
 cat > "$session_file" << 'EOF'
 {
   "session_id": "test-no-ts",
@@ -643,7 +643,7 @@ cleanup_test_env
 test_start "session_end: handles missing start block"
 setup_test_env
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-no-start.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-no-start.json"
 cat > "$session_file" << 'EOF'
 {
   "session_id": "test-no-start",
@@ -666,7 +666,7 @@ cleanup_test_env
 test_start "session_end: preserves extra fields in session file"
 setup_test_env
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-extra.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-extra.json"
 cat > "$session_file" << 'EOF'
 {
   "session_id": "test-extra",
@@ -699,7 +699,7 @@ cleanup_test_env
 test_start "session_end: doesn't update incomplete sessions"
 setup_test_env
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-incomplete.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-incomplete.json"
 cat > "$session_file" << 'EOF'
 {
   "session_id": "test-incomplete",

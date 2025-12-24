@@ -22,7 +22,7 @@ git -C "$TEST_TMPDIR" checkout -q "$commit_sha"  # Detach HEAD
 input='{"session_id":"test-detached","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-detached.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-detached.json"
 branch=$(jq -r '.start.git.branch' "$session_file")
 
 # In detached HEAD, branch is "HEAD"
@@ -48,7 +48,7 @@ git -C "$TEST_TMPDIR" init -q
 input='{"session_id":"test-empty-repo","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-empty-repo.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-empty-repo.json"
 sha=$(jq -r '.start.git.sha' "$session_file")
 
 # For an empty repo (no commits), git rev-parse HEAD fails, so SHA should be empty
@@ -84,7 +84,7 @@ git -C "$TEST_TMPDIR" add test.txt
 input='{"session_id":"test-no-config","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-no-config.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-no-config.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.start.git.is_repo' 'true'; then
   test_pass "Git state captured without commits"
@@ -114,7 +114,7 @@ git -C "$TEST_TMPDIR" commit -q -m "Initial"
 input='{"session_id":"test-submodules","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-submodules.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-submodules.json"
 if assert_file_exists "$session_file" && \
    assert_json_value "$session_file" '.start.git.is_repo' 'true'; then
   test_pass "Repo with submodule structure handled"
@@ -175,7 +175,7 @@ input='{"session_id":"test-corrupt-index","cwd":"'"$TEST_TMPDIR"'","source":"sta
 run_hook "session_start.sh" "$input" 2>/dev/null
 exit_code=$?
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-corrupt-index.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-corrupt-index.json"
 # Hook should exit 0 even if git fails, and may or may not create session
 if [ $exit_code -eq 0 ]; then
   if [ -f "$session_file" ]; then
@@ -208,7 +208,7 @@ git -C "$TEST_TMPDIR" checkout -b "feature/test-branch_v2.0" -q
 input='{"session_id":"test-special-branch","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-special-branch.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-special-branch.json"
 branch=$(jq -r '.start.git.branch' "$session_file")
 
 if [ "$branch" = "feature/test-branch_v2.0" ]; then
@@ -237,7 +237,7 @@ if git -C "$TEST_TMPDIR" checkout -b "feature/test-功能" -q 2>/dev/null; then
   input='{"session_id":"test-unicode-branch","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
   run_hook "session_start.sh" "$input"
 
-  session_file="$TEST_TMPDIR/.claude/sessions/test-unicode-branch.json"
+  session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-unicode-branch.json"
   if assert_file_exists "$session_file"; then
     test_pass "Unicode branch name handled"
   fi
@@ -278,7 +278,7 @@ git -C "$TEST_TMPDIR" commit -q -m "Main commit"
 git -C "$TEST_TMPDIR" merge feature -q --no-edit 2>/dev/null || true
 
 # Create session file
-session_file="$TEST_TMPDIR/.claude/sessions/test-merge.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-merge.json"
 cat > "$session_file" << EOF
 {
   "session_id": "test-merge",
@@ -322,7 +322,7 @@ echo "2" > "$TEST_TMPDIR/test.txt"
 git -C "$TEST_TMPDIR" commit -q -am "Commit 2"
 
 # Create session with fake/unreachable start SHA
-session_file="$TEST_TMPDIR/.claude/sessions/test-shallow.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-shallow.json"
 cat > "$session_file" << EOF
 {
   "session_id": "test-shallow",
@@ -369,7 +369,7 @@ done
 input='{"session_id":"test-many-dirty","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/test-many-dirty.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-many-dirty.json"
 dirty_files_count=$(jq -r '.start.git.dirty_files | length' "$session_file")
 dirty_count=$(jq -r '.start.git.dirty_count' "$session_file")
 
@@ -408,8 +408,8 @@ if git -C "$TEST_TMPDIR" worktree add "$worktree_dir" -b worktree-branch -q 2>/d
   echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh"
 
   # Check if session was created (might be in main or worktree)
-  if [ -f "$worktree_dir/.claude/sessions/test-worktree.json" ] || \
-     [ -f "$TEST_TMPDIR/.claude/sessions/test-worktree.json" ]; then
+  if [ -f "$worktree_dir/.claude/sessions/$GITHUB_NICKNAME/test-worktree.json" ] || \
+     [ -f "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-worktree.json" ]; then
     test_pass "Worktree session created"
   else
     test_pass "Worktree handled gracefully"
