@@ -354,25 +354,19 @@ fi
 cleanup_test
 
 #######################################
-# Test: Sessions gitignore is noted but not critical
+# Test: Sessions gitignore triggers critical warning
 #######################################
-test_start "sessions gitignore is noted but OK"
+test_start "sessions gitignore triggers warning"
 setup_test
 
 echo ".claude/sessions/" > "$TEST_TMPDIR/project/.gitignore"
 
 output=$(run_install "$TEST_TMPDIR/project" "testuser")
 
-# Should NOT show critical warning
 if echo "$output" | grep -q "WARNING.*Critical files"; then
-  test_fail "sessions should not trigger critical warning"
+  test_pass
 else
-  # Should show note
-  if echo "$output" | grep -q "Note:.*sessions"; then
-    test_pass "correctly noted as non-critical"
-  else
-    test_pass "no warning for sessions-only gitignore"
-  fi
+  test_fail "sessions should trigger critical warning"
 fi
 
 cleanup_test

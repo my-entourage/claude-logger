@@ -181,10 +181,7 @@ check_gitignore_issues() {
     "^\.claude/\*$"          # .claude/*
     "^\.claude/settings"     # .claude/settings.json
     "^\.claude/hooks"        # .claude/hooks
-  )
-
-  local warning_patterns=(
-    "^\.claude/sessions"     # .claude/sessions - not critical but worth noting
+    "^\.claude/sessions"     # .claude/sessions
   )
 
   echo ""
@@ -209,19 +206,11 @@ check_gitignore_issues() {
     echo "   These files MUST NOT be gitignored:"
     echo "   - .claude/settings.json (tells Claude Code to run hooks)"
     echo "   - .claude/hooks/ (the hook scripts)"
+    echo "   - .claude/sessions/ (session tracking data)"
     echo ""
     echo "   To fix, edit $gitignore_file and remove or modify these patterns."
-    echo "   You can safely ignore .claude/sessions/ if you don't want to track session data."
     echo ""
   fi
-
-  # Check for warning patterns (non-critical)
-  for pattern in "${warning_patterns[@]}"; do
-    if grep -qE "$pattern" "$gitignore_file" 2>/dev/null; then
-      local matched_line=$(grep -E "$pattern" "$gitignore_file" | head -1)
-      echo "   Note: '$matched_line' - sessions won't be committed (this is OK)"
-    fi
-  done
 
   if [ "$issues_found" = true ]; then
     return 1
