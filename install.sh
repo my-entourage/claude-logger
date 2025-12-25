@@ -35,37 +35,57 @@ if [ ! -d "$PROJECT_DIR" ]; then
 fi
 
 #######################################
-# Prompt for GitHub nickname (blocking with validation)
+# Get GitHub nickname (from env or prompt)
 #######################################
-echo ""
-echo "Claude Tracker requires a nickname to organize your sessions."
-echo "This should be your GitHub username or a consistent identifier."
-echo "(Valid: 1-39 characters, lowercase letters, numbers, dashes, underscores)"
-echo ""
+GITHUB_NICKNAME="${GITHUB_NICKNAME:-}"
+NICKNAME_FROM_ENV=false
 
-GITHUB_NICKNAME=""
-while true; do
-  read -p "Enter your nickname: " GITHUB_NICKNAME
-
+# Check if already set in environment
+if [ -n "$GITHUB_NICKNAME" ]; then
   # Normalize to lowercase
   GITHUB_NICKNAME=$(echo "$GITHUB_NICKNAME" | tr '[:upper:]' '[:lower:]')
 
-  if [ -z "$GITHUB_NICKNAME" ]; then
-    echo "Error: Nickname cannot be empty. Please try again."
-    continue
-  fi
-
   if validate_nickname "$GITHUB_NICKNAME"; then
-    break
+    echo ""
+    echo "Using GITHUB_NICKNAME from environment: $GITHUB_NICKNAME"
+    NICKNAME_FROM_ENV=true
   else
-    echo "Error: Invalid nickname '$GITHUB_NICKNAME'."
-    echo "Must be 1-39 characters, lowercase alphanumeric with dashes/underscores only."
-    echo "Please try again."
+    echo "Warning: GITHUB_NICKNAME '$GITHUB_NICKNAME' is invalid, prompting for new one."
+    GITHUB_NICKNAME=""
   fi
-done
+fi
 
-echo ""
-echo "Using nickname: $GITHUB_NICKNAME"
+# Prompt if not set or invalid
+if [ -z "$GITHUB_NICKNAME" ]; then
+  echo ""
+  echo "Claude Tracker requires a nickname to organize your sessions."
+  echo "This should be your GitHub username or a consistent identifier."
+  echo "(Valid: 1-39 characters, lowercase letters, numbers, dashes, underscores)"
+  echo ""
+
+  while true; do
+    read -p "Enter your nickname: " GITHUB_NICKNAME
+
+    # Normalize to lowercase
+    GITHUB_NICKNAME=$(echo "$GITHUB_NICKNAME" | tr '[:upper:]' '[:lower:]')
+
+    if [ -z "$GITHUB_NICKNAME" ]; then
+      echo "Error: Nickname cannot be empty. Please try again."
+      continue
+    fi
+
+    if validate_nickname "$GITHUB_NICKNAME"; then
+      break
+    else
+      echo "Error: Invalid nickname '$GITHUB_NICKNAME'."
+      echo "Must be 1-39 characters, lowercase alphanumeric with dashes/underscores only."
+      echo "Please try again."
+    fi
+  done
+
+  echo ""
+  echo "Using nickname: $GITHUB_NICKNAME"
+fi
 
 # Create directories
 mkdir -p "$PROJECT_DIR/.claude/hooks"
@@ -233,10 +253,12 @@ if [ "$GITIGNORE_OK" = false ]; then
   echo ""
 fi
 
-echo "IMPORTANT: Add this to your shell profile (.bashrc, .zshrc, etc.):"
-echo ""
-echo "  export GITHUB_NICKNAME=\"$GITHUB_NICKNAME\""
-echo ""
+if [ "$NICKNAME_FROM_ENV" = false ]; then
+  echo "IMPORTANT: Add this to your shell profile (.bashrc, .zshrc, etc.):"
+  echo ""
+  echo "  export GITHUB_NICKNAME=\"$GITHUB_NICKNAME\""
+  echo ""
+fi
+
 echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/$GITHUB_NICKNAME/"
-echo "Sessions are automatically captured when GITHUB_NICKNAME is set."
 echo ""
