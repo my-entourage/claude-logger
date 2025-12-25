@@ -726,5 +726,144 @@ fi
 
 cleanup_test_env
 
+#######################################
+# Test: Transcript copied to sessions directory
+#######################################
+test_start "session_end: copies transcript to sessions directory"
+setup_test_env
+
+# Create a fake transcript file
+transcript_file="/tmp/test-transcript-$$.jsonl"
+echo '{"type":"user","message":"hello"}' > "$transcript_file"
+echo '{"type":"assistant","message":"hi"}' >> "$transcript_file"
+
+# Create session with transcript_path
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-transcript.json"
+cat > "$session_file" << EOF
+{
+  "session_id": "test-transcript",
+  "transcript_path": "$transcript_file",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2025-01-01T12:00:00Z"
+  }
+}
+EOF
+
+input='{"session_id":"test-transcript","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
+run_hook "session_end.sh" "$input"
+
+# Check transcript was copied
+copied_transcript="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-transcript.jsonl"
+if [ -f "$copied_transcript" ]; then
+  # Verify content matches
+  if diff -q "$transcript_file" "$copied_transcript" >/dev/null 2>&1; then
+    test_pass "Transcript copied correctly"
+  else
+    test_fail "Transcript content mismatch"
+  fi
+else
+  test_fail "Transcript not copied"
+fi
+
+rm -f "$transcript_file"
+cleanup_test_env
+
+#######################################
+# Test: Missing transcript file handled gracefully
+#######################################
+test_start "session_end: handles missing transcript gracefully"
+setup_test_env
+
+# Create session with non-existent transcript_path
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-missing-transcript.json"
+cat > "$session_file" << 'EOF'
+{
+  "session_id": "test-missing-transcript",
+  "transcript_path": "/nonexistent/path/transcript.jsonl",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2025-01-01T12:00:00Z"
+  }
+}
+EOF
+
+input='{"session_id":"test-missing-transcript","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
+run_hook "session_end.sh" "$input"
+
+# Session should still complete
+if assert_json_value "$session_file" '.status' 'complete'; then
+  # No transcript file should exist
+  if [ ! -f "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-missing-transcript.jsonl" ]; then
+    test_pass "Missing transcript handled gracefully"
+  else
+    test_fail "Unexpected transcript file created"
+  fi
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Empty transcript not copied
+#######################################
+test_start "session_end: skips empty transcript"
+setup_test_env
+
+# Create empty transcript file
+transcript_file="/tmp/test-empty-transcript-$$.jsonl"
+touch "$transcript_file"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-empty-transcript.json"
+cat > "$session_file" << EOF
+{
+  "session_id": "test-empty-transcript",
+  "transcript_path": "$transcript_file",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2025-01-01T12:00:00Z"
+  }
+}
+EOF
+
+input='{"session_id":"test-empty-transcript","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
+run_hook "session_end.sh" "$input"
+
+# Empty transcript should not be copied
+if [ ! -f "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-empty-transcript.jsonl" ]; then
+  test_pass "Empty transcript not copied"
+else
+  test_fail "Empty transcript was copied"
+fi
+
+rm -f "$transcript_file"
+cleanup_test_env
+
+#######################################
+# Test: No transcript_path in session
+#######################################
+test_start "session_end: handles missing transcript_path field"
+setup_test_env
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-no-path.json"
+cat > "$session_file" << 'EOF'
+{
+  "session_id": "test-no-path",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2025-01-01T12:00:00Z"
+  }
+}
+EOF
+
+input='{"session_id":"test-no-path","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
+run_hook "session_end.sh" "$input"
+
+# Session should still complete
+if assert_json_value "$session_file" '.status' 'complete'; then
+  test_pass "Missing transcript_path handled"
+fi
+
+cleanup_test_env
+
 echo ""
 echo "session_end.sh tests complete"
