@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 #
+# ╔════════════════════════════════════════════════════════════════════════════╗
+# ║  DO NOT MODIFY - This file is managed by claude-logger                     ║
+# ║  Source: https://github.com/my-entourage/claude-logger                     ║
+# ║  To update, re-run the installer from the claude-logger repository.        ║
+# ╚════════════════════════════════════════════════════════════════════════════╝
+#
 # Claude Tracker - Session End Hook
 # Captures final git state and marks session complete.
 #
