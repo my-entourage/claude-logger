@@ -297,6 +297,87 @@ fi
 cleanup_test
 
 #######################################
+# Test: Gitignore warning for .claude/
+#######################################
+test_start "gitignore warning for .claude/ pattern"
+setup_test
+
+# Create gitignore with problematic pattern
+echo ".claude/" > "$TEST_TMPDIR/project/.gitignore"
+
+output=$(run_install "$TEST_TMPDIR/project" "testuser")
+
+if echo "$output" | grep -q "WARNING.*Critical files"; then
+  test_pass
+else
+  test_fail "no warning for .claude/ in gitignore"
+fi
+
+cleanup_test
+
+#######################################
+# Test: Gitignore warning for .claude/settings
+#######################################
+test_start "gitignore warning for settings.json pattern"
+setup_test
+
+echo ".claude/settings.json" > "$TEST_TMPDIR/project/.gitignore"
+
+output=$(run_install "$TEST_TMPDIR/project" "testuser")
+
+if echo "$output" | grep -q "WARNING.*Critical files"; then
+  test_pass
+else
+  test_fail "no warning for .claude/settings in gitignore"
+fi
+
+cleanup_test
+
+#######################################
+# Test: No gitignore warning for clean project
+#######################################
+test_start "no warning when gitignore is clean"
+setup_test
+
+# Create gitignore without problematic patterns
+echo "node_modules/" > "$TEST_TMPDIR/project/.gitignore"
+echo ".env" >> "$TEST_TMPDIR/project/.gitignore"
+
+output=$(run_install "$TEST_TMPDIR/project" "testuser")
+
+if echo "$output" | grep -q "WARNING.*Critical files"; then
+  test_fail "false warning when gitignore is clean"
+else
+  test_pass
+fi
+
+cleanup_test
+
+#######################################
+# Test: Sessions gitignore is noted but not critical
+#######################################
+test_start "sessions gitignore is noted but OK"
+setup_test
+
+echo ".claude/sessions/" > "$TEST_TMPDIR/project/.gitignore"
+
+output=$(run_install "$TEST_TMPDIR/project" "testuser")
+
+# Should NOT show critical warning
+if echo "$output" | grep -q "WARNING.*Critical files"; then
+  test_fail "sessions should not trigger critical warning"
+else
+  # Should show note
+  if echo "$output" | grep -q "Note:.*sessions"; then
+    test_pass "correctly noted as non-critical"
+  else
+    test_pass "no warning for sessions-only gitignore"
+  fi
+fi
+
+cleanup_test
+
+#######################################
 # Summary
 #######################################
 echo ""

@@ -162,9 +162,88 @@ else
   cp "$HOOKS_CONFIG" "$SETTINGS_FILE"
 fi
 
+#######################################
+# Check for .gitignore issues
+# Claude Code may add .claude to gitignore, which breaks hooks
+#######################################
+check_gitignore_issues() {
+  local project_dir="$1"
+  local gitignore_file="$project_dir/.gitignore"
+  local issues_found=false
+
+  if [ ! -f "$gitignore_file" ]; then
+    return 0
+  fi
+
+  # Patterns that would break Claude Logger
+  local critical_patterns=(
+    "^\.claude/?$"           # .claude or .claude/
+    "^\.claude/\*$"          # .claude/*
+    "^\.claude/settings"     # .claude/settings.json
+    "^\.claude/hooks"        # .claude/hooks
+  )
+
+  local warning_patterns=(
+    "^\.claude/sessions"     # .claude/sessions - not critical but worth noting
+  )
+
+  echo ""
+  echo "Checking .gitignore for conflicts..."
+
+  for pattern in "${critical_patterns[@]}"; do
+    if grep -qE "$pattern" "$gitignore_file" 2>/dev/null; then
+      if [ "$issues_found" = false ]; then
+        echo ""
+        echo "⚠️  WARNING: Critical files are in .gitignore!"
+        echo "   Claude Logger will NOT work correctly."
+        echo ""
+        issues_found=true
+      fi
+      local matched_line=$(grep -E "$pattern" "$gitignore_file" | head -1)
+      echo "   PROBLEM: '$matched_line' in .gitignore"
+    fi
+  done
+
+  if [ "$issues_found" = true ]; then
+    echo ""
+    echo "   These files MUST NOT be gitignored:"
+    echo "   - .claude/settings.json (tells Claude Code to run hooks)"
+    echo "   - .claude/hooks/ (the hook scripts)"
+    echo ""
+    echo "   To fix, edit $gitignore_file and remove or modify these patterns."
+    echo "   You can safely ignore .claude/sessions/ if you don't want to track session data."
+    echo ""
+  fi
+
+  # Check for warning patterns (non-critical)
+  for pattern in "${warning_patterns[@]}"; do
+    if grep -qE "$pattern" "$gitignore_file" 2>/dev/null; then
+      local matched_line=$(grep -E "$pattern" "$gitignore_file" | head -1)
+      echo "   Note: '$matched_line' - sessions won't be committed (this is OK)"
+    fi
+  done
+
+  if [ "$issues_found" = true ]; then
+    return 1
+  fi
+  return 0
+}
+
+# Run gitignore check
+GITIGNORE_OK=true
+if ! check_gitignore_issues "$PROJECT_DIR"; then
+  GITIGNORE_OK=false
+fi
+
 echo ""
 echo "Claude Tracker installed successfully!"
 echo ""
+
+if [ "$GITIGNORE_OK" = false ]; then
+  echo "⚠️  ACTION REQUIRED: Fix .gitignore issues above before using Claude Logger."
+  echo ""
+fi
+
 echo "IMPORTANT: Add this to your shell profile (.bashrc, .zshrc, etc.):"
 echo ""
 echo "  export GITHUB_NICKNAME=\"$GITHUB_NICKNAME\""
