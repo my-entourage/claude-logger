@@ -151,8 +151,13 @@ if [ -f "$SETTINGS_FILE" ]; then
         '.hooks.SessionStart += [$start] | .hooks.SessionEnd += [$end]' \
         "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
     else
-      # No existing hooks, merge normally
-      jq -s '.[0] * .[1]' "$SETTINGS_FILE" "$HOOKS_CONFIG" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+      # No existing hooks, add ours (don't overwrite other settings)
+      TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG")
+      TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG")
+
+      jq --argjson start "$TRACKER_START_HOOK" --argjson end "$TRACKER_END_HOOK" \
+        '.hooks.SessionStart = [$start] | .hooks.SessionEnd = [$end]' \
+        "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
     fi
   else
     # One exists but not the other - add the missing one
@@ -176,6 +181,24 @@ if [ -f "$SETTINGS_FILE" ]; then
           "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
       fi
     fi
+  fi
+
+  #######################################
+  # Add permissions to protect hooks from modification
+  #######################################
+  HOOK_PERMISSIONS=$(jq '.permissions.deny // []' "$HOOKS_CONFIG")
+
+  # Merge with existing permissions (avoid duplicates)
+  if jq -e '.permissions.deny' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    # Append our permissions if not already present
+    jq --argjson new_perms "$HOOK_PERMISSIONS" \
+      '.permissions.deny = (.permissions.deny + $new_perms | unique)' \
+      "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+  else
+    # No existing permissions, add ours
+    jq --argjson new_perms "$HOOK_PERMISSIONS" \
+      '.permissions.deny = $new_perms' \
+      "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
   fi
 else
   # No existing settings, copy hooks config

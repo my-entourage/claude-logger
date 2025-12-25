@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "deny": [
+      "Edit(./.claude/hooks/**)",
+      "Write(./.claude/hooks/**)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

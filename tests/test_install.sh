@@ -372,6 +372,55 @@ fi
 cleanup_test
 
 #######################################
+# Test: Permissions deny rules added
+#######################################
+test_start "permissions deny rules protect hooks"
+setup_test
+
+run_install "$TEST_TMPDIR/project" "testuser" > /dev/null
+
+# Check permissions.deny contains hook protection
+if jq -e '.permissions.deny | map(select(contains(".claude/hooks"))) | length > 0' "$TEST_TMPDIR/project/.claude/settings.json" > /dev/null 2>&1; then
+  test_pass "hooks protected by permissions.deny"
+else
+  test_fail "permissions.deny missing hook protection"
+fi
+
+cleanup_test
+
+#######################################
+# Test: Permissions preserved on reinstall
+#######################################
+test_start "existing permissions preserved on reinstall"
+setup_test
+
+# Create project with existing permissions
+mkdir -p "$TEST_TMPDIR/project/.claude"
+cat > "$TEST_TMPDIR/project/.claude/settings.json" << 'EOF'
+{
+  "permissions": {
+    "deny": [
+      "Edit(./.env)"
+    ]
+  }
+}
+EOF
+
+run_install "$TEST_TMPDIR/project" "testuser" > /dev/null
+
+# Check both our permissions and existing ones are present
+existing=$(jq -r '.permissions.deny | map(select(contains(".env"))) | length' "$TEST_TMPDIR/project/.claude/settings.json" 2>/dev/null || echo "0")
+ours=$(jq -r '.permissions.deny | map(select(contains(".claude/hooks"))) | length' "$TEST_TMPDIR/project/.claude/settings.json" 2>/dev/null || echo "0")
+
+if [ "$existing" -gt 0 ] && [ "$ours" -gt 0 ]; then
+  test_pass "both existing and new permissions present"
+else
+  test_fail "existing=$existing ours=$ours"
+fi
+
+cleanup_test
+
+#######################################
 # Summary
 #######################################
 echo ""
