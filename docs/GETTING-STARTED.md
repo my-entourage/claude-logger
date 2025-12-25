@@ -321,10 +321,15 @@ Claude Logger includes a comprehensive test suite:
 
 ```bash
 cd /path/to/claude-logger
+
+# Run hook tests (103 tests)
 bash hooks/tests/test_runner.sh
+
+# Run installer tests (18 tests)
+bash tests/test_install.sh
 ```
 
-This runs 99 tests covering security, edge cases, and stress scenarios.
+This runs 121 tests covering security, edge cases, installation, and stress scenarios.
 
 ## What's Next
 

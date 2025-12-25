@@ -49,8 +49,11 @@ Uses Claude Code's `SessionStart` and `SessionEnd` hooks to capture enrichment d
 
 **Claude's data:** `~/.claude/projects/{project}/{session_id}.jsonl`
 **Our enrichment:** `.claude/sessions/{nickname}/{session_id}.json` (project-local, per-user)
+**Copied transcript:** `.claude/sessions/{nickname}/{session_id}.jsonl` (copied at session end)
 
 Linked by `session_id`. Query both together for complete picture.
+
+The installer also adds `permissions.deny` rules to prevent Claude from accidentally modifying the hook files.
 
 ## Data Captured (MVP)
 
@@ -95,7 +98,6 @@ Linked by `session_id`. Query both together for complete picture.
 
 - **[Getting Started](docs/GETTING-STARTED.md)** - Installation, usage, and troubleshooting
 - **[Upgrading](docs/UPGRADING.md)** - Migration guide for existing users
-- **[Implementation Plan](docs/PLAN.md)** - Technical details and architecture
 
 ## Contributing
 
