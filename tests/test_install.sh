@@ -281,6 +281,44 @@ fi
 cleanup_test
 
 #######################################
+# Test: Hooks have DO NOT MODIFY header
+#######################################
+test_start "hooks have DO NOT MODIFY header"
+setup_test
+
+run_install "$TEST_TMPDIR/project" "testuser" > /dev/null
+
+# Check for protection header
+if grep -q "DO NOT MODIFY" "$TEST_TMPDIR/project/.claude/hooks/session_start.sh" && \
+   grep -q "DO NOT MODIFY" "$TEST_TMPDIR/project/.claude/hooks/session_end.sh"; then
+  test_pass
+else
+  test_fail "hooks missing DO NOT MODIFY header"
+fi
+
+cleanup_test
+
+#######################################
+# Test: Permissions not duplicated on reinstall
+#######################################
+test_start "permissions not duplicated on reinstall"
+setup_test
+
+run_install "$TEST_TMPDIR/project" "testuser" > /dev/null
+perm_count_before=$(jq '.permissions.deny | length' "$TEST_TMPDIR/project/.claude/settings.json")
+
+run_install "$TEST_TMPDIR/project" "testuser" > /dev/null
+perm_count_after=$(jq '.permissions.deny | length' "$TEST_TMPDIR/project/.claude/settings.json")
+
+if [ "$perm_count_before" = "$perm_count_after" ]; then
+  test_pass
+else
+  test_fail "permissions duplicated: before=$perm_count_before after=$perm_count_after"
+fi
+
+cleanup_test
+
+#######################################
 # Test: Success message shows nickname
 #######################################
 test_start "success message shows session path"
