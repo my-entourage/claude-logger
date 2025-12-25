@@ -94,7 +94,12 @@ Linked by `session_id`. Query both together for complete picture.
 ## Documentation
 
 - **[Getting Started](docs/GETTING-STARTED.md)** - Installation, usage, and troubleshooting
+- **[Upgrading](docs/UPGRADING.md)** - Migration guide for existing users
 - **[Implementation Plan](docs/PLAN.md)** - Technical details and architecture
+
+## Contributing
+
+Development happens on the `development` branch. PRs go to `development` first, then merge to `main` when tested.
 
 ## License
 

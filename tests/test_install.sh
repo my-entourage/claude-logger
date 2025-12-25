@@ -297,6 +297,81 @@ fi
 cleanup_test
 
 #######################################
+# Test: Gitignore warning for .claude/
+#######################################
+test_start "gitignore warning for .claude/ pattern"
+setup_test
+
+# Create gitignore with problematic pattern
+echo ".claude/" > "$TEST_TMPDIR/project/.gitignore"
+
+output=$(run_install "$TEST_TMPDIR/project" "testuser")
+
+if echo "$output" | grep -q "WARNING.*Critical files"; then
+  test_pass
+else
+  test_fail "no warning for .claude/ in gitignore"
+fi
+
+cleanup_test
+
+#######################################
+# Test: Gitignore warning for .claude/settings
+#######################################
+test_start "gitignore warning for settings.json pattern"
+setup_test
+
+echo ".claude/settings.json" > "$TEST_TMPDIR/project/.gitignore"
+
+output=$(run_install "$TEST_TMPDIR/project" "testuser")
+
+if echo "$output" | grep -q "WARNING.*Critical files"; then
+  test_pass
+else
+  test_fail "no warning for .claude/settings in gitignore"
+fi
+
+cleanup_test
+
+#######################################
+# Test: No gitignore warning for clean project
+#######################################
+test_start "no warning when gitignore is clean"
+setup_test
+
+# Create gitignore without problematic patterns
+echo "node_modules/" > "$TEST_TMPDIR/project/.gitignore"
+echo ".env" >> "$TEST_TMPDIR/project/.gitignore"
+
+output=$(run_install "$TEST_TMPDIR/project" "testuser")
+
+if echo "$output" | grep -q "WARNING.*Critical files"; then
+  test_fail "false warning when gitignore is clean"
+else
+  test_pass
+fi
+
+cleanup_test
+
+#######################################
+# Test: Sessions gitignore triggers critical warning
+#######################################
+test_start "sessions gitignore triggers warning"
+setup_test
+
+echo ".claude/sessions/" > "$TEST_TMPDIR/project/.gitignore"
+
+output=$(run_install "$TEST_TMPDIR/project" "testuser")
+
+if echo "$output" | grep -q "WARNING.*Critical files"; then
+  test_pass
+else
+  test_fail "sessions should trigger critical warning"
+fi
+
+cleanup_test
+
+#######################################
 # Summary
 #######################################
 echo ""
