@@ -57,6 +57,26 @@ run_with_timeout() {
 }
 
 #######################################
+# Resolve project root (git root or fallback to cwd)
+# Attempts to find the git repository root directory.
+# Falls back to provided cwd if not in a git repo or on timeout.
+#######################################
+resolve_project_root() {
+  local dir="$1"
+  local git_timeout=3
+
+  # Try to get git root
+  local git_root
+  git_root=$(run_with_timeout "$git_timeout" git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
+
+  if [ -n "$git_root" ] && [ -d "$git_root" ]; then
+    echo "$git_root"
+  else
+    echo "$dir"
+  fi
+}
+
+#######################################
 # Read and validate input
 #######################################
 HOOK_INPUT=$(cat)
@@ -74,12 +94,16 @@ if [ -z "$CWD" ] || [ ! -d "$CWD" ]; then
   CWD=$(pwd)
 fi
 
+# Resolve project root for session storage
+PROJECT_ROOT=$(resolve_project_root "$CWD")
+
 #######################################
 # Get user nickname (required for tracking)
 #######################################
 GITHUB_NICKNAME="${GITHUB_NICKNAME:-}"
 if [ -z "$GITHUB_NICKNAME" ]; then
-  # No nickname configured - skip tracking silently
+  echo "⚠️  GITHUB_NICKNAME not set - session not saved!" >&2
+  echo "   Add to your shell profile: export GITHUB_NICKNAME=\"your-github-name\"" >&2
   exit 0
 fi
 
@@ -96,7 +120,7 @@ fi
 #######################################
 # Locate session file
 #######################################
-SESSION_FILE="$CWD/.claude/sessions/$GITHUB_NICKNAME/$SESSION_ID.json"
+SESSION_FILE="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME/$SESSION_ID.json"
 
 # Only update if session file exists and is readable
 if [ ! -f "$SESSION_FILE" ] || [ ! -r "$SESSION_FILE" ]; then
@@ -225,7 +249,7 @@ copy_transcript() {
 
 # Get transcript path from the session JSON we just updated
 TRANSCRIPT_PATH=$(jq -r '.transcript_path // ""' "$SESSION_FILE" 2>/dev/null)
-SESSION_DIR="$CWD/.claude/sessions/$GITHUB_NICKNAME"
+SESSION_DIR="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME"
 
 copy_transcript "$TRANSCRIPT_PATH" "$SESSION_DIR" "$SESSION_ID"
 
