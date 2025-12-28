@@ -47,17 +47,26 @@ validate_nickname() {
 }
 
 #######################################
-# Timeout wrapper (macOS doesn't have timeout by default)
+# Timeout wrapper (portable: works on macOS and Linux)
+# Uses GNU timeout when available, otherwise falls back to direct execution.
+# Claude Code has its own 10s hook timeout which provides protection.
 #######################################
 run_with_timeout() {
   local timeout_seconds="$1"
   shift
+
+  # Use GNU timeout if available (Linux, Homebrew on macOS)
   if command -v timeout &>/dev/null; then
     timeout "$timeout_seconds" "$@"
-  else
-    # Fallback: run without timeout (accept small risk of hang)
-    "$@"
+    return $?
   fi
+
+  # macOS fallback: run directly without timeout wrapper
+  # This is acceptable because:
+  # 1. Git operations rarely hang in normal conditions
+  # 2. Claude Code enforces a 10s hook timeout externally
+  # 3. Background process management adds overhead and complexity
+  "$@"
 }
 
 #######################################
@@ -89,16 +98,23 @@ if [ -z "$HOOK_INPUT" ]; then
 fi
 
 #######################################
-# Parse input with validation
+# Parse input with validation (single jq call)
 #######################################
-SESSION_ID=$(echo "$HOOK_INPUT" | jq -r '.session_id // empty')
+eval "set -- $(echo "$HOOK_INPUT" | jq -r '[
+  .session_id // "",
+  .transcript_path // "",
+  .cwd // "",
+  .source // "startup"
+] | @sh')"
+SESSION_ID="$1"
+TRANSCRIPT_PATH="$2"
+CWD="$3"
+SOURCE="$4"
+
 if [ -z "$SESSION_ID" ]; then
   exit 0  # No session ID = nothing to track
 fi
 
-TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | jq -r '.transcript_path // empty')
-CWD=$(echo "$HOOK_INPUT" | jq -r '.cwd // empty')
-SOURCE=$(echo "$HOOK_INPUT" | jq -r '.source // "startup"')
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Fallback for CWD
@@ -166,6 +182,7 @@ acquire_lock
 #######################################
 # Mark orphaned sessions (only recent ones)
 # Only check files modified in last 24 hours to avoid O(n) on old sessions
+# Note: This runs AFTER session creation to avoid blocking
 #######################################
 mark_orphans() {
   # Use find with -mtime to limit scope
@@ -181,7 +198,7 @@ mark_orphans() {
     done
   fi
 }
-mark_orphans
+# NOTE: mark_orphans is called AFTER session file is written (see end of script)
 
 #######################################
 # Capture git state (with timeouts)
@@ -254,13 +271,29 @@ CLAUDE_MD_PATH=""
 #######################################
 # Capture skills and commands
 # Limit total size to prevent memory issues
+# Optimized: collects entries then builds JSON object in one jq call
 #######################################
 capture_config_files() {
   local dir_type="$1"  # "skills" or "commands"
-  local result="{}"
   local total_size=0
   local max_total=524288  # 512KB total limit
   local max_file=51200    # 50KB per file limit
+  local entries=""        # Accumulate JSON key-value pairs
+
+  # Helper to add a file to entries (1 jq call per file, no merge call)
+  add_entry() {
+    local name="$1" file="$2"
+    local content
+    content=$(jq -Rs '.' "$file" 2>/dev/null) || return
+    # Append as JSON fragment: "name": content
+    if [ -n "$entries" ]; then
+      entries="$entries,"
+    fi
+    # Use jq to safely escape the name (handles special chars)
+    local escaped_name
+    escaped_name=$(printf '%s' "$name" | jq -Rs '.')
+    entries="$entries$escaped_name:$content"
+  }
 
   # Helper to process a directory
   process_dir() {
@@ -271,7 +304,7 @@ capture_config_files() {
       # Skills: look for SKILL.md in subdirectories
       for skill_dir in "$base_dir"/*/; do
         [ -d "$skill_dir" ] || continue
-        local skill_name skill_file skill_content file_size
+        local skill_name skill_file file_size
         skill_name=$(basename "$skill_dir")
         skill_file="$skill_dir/SKILL.md"
         [ -f "$skill_file" ] && [ -r "$skill_file" ] || continue
@@ -281,14 +314,13 @@ capture_config_files() {
         total_size=$((total_size + file_size))
         [ "$total_size" -gt "$max_total" ] && break
 
-        skill_content=$(jq -Rs '.' "$skill_file" 2>/dev/null) || continue
-        result=$(echo "$result" | jq --arg n "$skill_name" --argjson c "$skill_content" '. + {($n): $c}')
+        add_entry "$skill_name" "$skill_file"
       done
     else
       # Commands: look for *.md files directly
       for cmd_file in "$base_dir"/*.md; do
         [ -f "$cmd_file" ] && [ -r "$cmd_file" ] || continue
-        local cmd_name cmd_content file_size
+        local cmd_name file_size
         cmd_name=$(basename "$cmd_file" .md)
 
         file_size=$(wc -c < "$cmd_file" | tr -d ' ')
@@ -296,8 +328,7 @@ capture_config_files() {
         total_size=$((total_size + file_size))
         [ "$total_size" -gt "$max_total" ] && break
 
-        cmd_content=$(jq -Rs '.' "$cmd_file" 2>/dev/null) || continue
-        result=$(echo "$result" | jq --arg n "$cmd_name" --argjson c "$cmd_content" '. + {($n): $c}')
+        add_entry "$cmd_name" "$cmd_file"
       done
     fi
   }
@@ -306,7 +337,8 @@ capture_config_files() {
   process_dir "$HOME/.claude/$dir_type"
   process_dir "$CWD/.claude/$dir_type"
 
-  echo "$result"
+  # Build final JSON object (no additional jq merge calls needed)
+  echo "{$entries}"
 }
 
 SKILLS_OBJ=$(capture_config_files "skills")
@@ -365,5 +397,14 @@ if [ -s "$TMP_FILE" ]; then
 else
   rm -f "$TMP_FILE" 2>/dev/null
 fi
+
+#######################################
+# Mark orphaned sessions (non-blocking)
+# Run AFTER our session is created so it doesn't block session creation
+# Safe to run without lock since we only update OTHER sessions
+#######################################
+release_lock
+trap - EXIT  # Clear trap since we manually released
+mark_orphans
 
 exit 0

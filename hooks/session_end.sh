@@ -43,17 +43,26 @@ validate_nickname() {
 }
 
 #######################################
-# Timeout wrapper (macOS doesn't have timeout by default)
+# Timeout wrapper (portable: works on macOS and Linux)
+# Uses GNU timeout when available, otherwise falls back to direct execution.
+# Claude Code has its own 10s hook timeout which provides protection.
 #######################################
 run_with_timeout() {
   local timeout_seconds="$1"
   shift
+
+  # Use GNU timeout if available (Linux, Homebrew on macOS)
   if command -v timeout &>/dev/null; then
     timeout "$timeout_seconds" "$@"
-  else
-    # Fallback: run without timeout (accept small risk of hang)
-    "$@"
+    return $?
   fi
+
+  # macOS fallback: run directly without timeout wrapper
+  # This is acceptable because:
+  # 1. Git operations rarely hang in normal conditions
+  # 2. Claude Code enforces a 10s hook timeout externally
+  # 3. Background process management adds overhead and complexity
+  "$@"
 }
 
 #######################################
@@ -77,16 +86,23 @@ resolve_project_root() {
 }
 
 #######################################
-# Read and validate input
+# Read and validate input (single jq call)
 #######################################
 HOOK_INPUT=$(cat)
 [ -z "$HOOK_INPUT" ] && exit 0
 
-SESSION_ID=$(echo "$HOOK_INPUT" | jq -r '.session_id // empty')
+# Parse all input fields in single jq call
+eval "set -- $(echo "$HOOK_INPUT" | jq -r '[
+  .session_id // "",
+  .cwd // "",
+  .reason // "other"
+] | @sh')"
+SESSION_ID="$1"
+CWD="$2"
+EXIT_REASON="$3"
+
 [ -z "$SESSION_ID" ] && exit 0
 
-CWD=$(echo "$HOOK_INPUT" | jq -r '.cwd // empty')
-EXIT_REASON=$(echo "$HOOK_INPUT" | jq -r '.reason // "other"')
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Fallback for CWD
@@ -127,15 +143,29 @@ if [ ! -f "$SESSION_FILE" ] || [ ! -r "$SESSION_FILE" ]; then
   exit 0
 fi
 
-# Verify it's valid JSON before modifying
-if ! jq -e '.' "$SESSION_FILE" &>/dev/null; then
-  exit 0
-fi
+#######################################
+# Read all needed values from session file (single jq call)
+# This replaces 4+ separate jq calls with one
+#######################################
+eval "set -- $(jq -r '[
+  (if . then "valid" else "invalid" end),
+  .status // "",
+  .start.git.sha // "",
+  .start.timestamp // "",
+  .transcript_path // ""
+] | @sh' "$SESSION_FILE" 2>/dev/null)"
+
+SESSION_VALID="$1"
+SESSION_STATUS="$2"
+START_SHA="$3"
+START_TS="$4"
+TRANSCRIPT_PATH="$5"
+
+# Exit if invalid JSON
+[ "$SESSION_VALID" != "valid" ] && exit 0
 
 # Don't update if already complete (idempotent)
-if jq -e '.status == "complete"' "$SESSION_FILE" &>/dev/null; then
-  exit 0
-fi
+[ "$SESSION_STATUS" = "complete" ] && exit 0
 
 #######################################
 # Capture end git state
@@ -152,13 +182,11 @@ capture_end_git() {
       dirty="true"
     fi
 
-    # Find commits made during session
-    local start_sha
-    start_sha=$(jq -r '.start.git.sha // ""' "$SESSION_FILE")
-    if [ -n "$start_sha" ] && [ -n "$sha" ] && [ "$start_sha" != "$sha" ]; then
-      # Verify start_sha is an ancestor (handles branch switches)
-      if run_with_timeout "$git_timeout" git -C "$CWD" merge-base --is-ancestor "$start_sha" "$sha" 2>/dev/null; then
-        commits_made=$(run_with_timeout "$git_timeout" git -C "$CWD" log --format='%H' "$start_sha..$sha" 2>/dev/null | head -100 | jq -R -s 'split("\n") | map(select(length > 0))') || commits_made="[]"
+    # Find commits made during session (uses pre-read START_SHA)
+    if [ -n "$START_SHA" ] && [ -n "$sha" ] && [ "$START_SHA" != "$sha" ]; then
+      # Verify START_SHA is an ancestor (handles branch switches)
+      if run_with_timeout "$git_timeout" git -C "$CWD" merge-base --is-ancestor "$START_SHA" "$sha" 2>/dev/null; then
+        commits_made=$(run_with_timeout "$git_timeout" git -C "$CWD" log --format='%H' "$START_SHA..$sha" 2>/dev/null | head -100 | jq -R -s 'split("\n") | map(select(length > 0))') || commits_made="[]"
       fi
     fi
   fi
@@ -176,21 +204,21 @@ GIT_END_DATA=$(capture_end_git)
 # Calculate duration (portable)
 #######################################
 calculate_duration() {
-  local start_ts duration=0
+  local duration=0
 
-  start_ts=$(jq -r '.start.timestamp // ""' "$SESSION_FILE")
-  [ -z "$start_ts" ] && echo "0" && return
+  # Uses pre-read START_TS from session file
+  [ -z "$START_TS" ] && echo "0" && return
 
   local start_epoch end_epoch
 
   # Try GNU date first (Linux), then BSD date (macOS)
   if date --version &>/dev/null 2>&1; then
     # GNU date
-    start_epoch=$(date -d "$start_ts" "+%s" 2>/dev/null) || start_epoch=0
+    start_epoch=$(date -d "$START_TS" "+%s" 2>/dev/null) || start_epoch=0
     end_epoch=$(date -d "$TIMESTAMP" "+%s" 2>/dev/null) || end_epoch=0
   else
     # BSD date (macOS)
-    start_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$start_ts" "+%s" 2>/dev/null) || start_epoch=0
+    start_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$START_TS" "+%s" 2>/dev/null) || start_epoch=0
     end_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$TIMESTAMP" "+%s" 2>/dev/null) || end_epoch=0
   fi
 
@@ -247,8 +275,7 @@ copy_transcript() {
   cp "$transcript_path" "$dest_dir/${session_id}.jsonl" 2>/dev/null || true
 }
 
-# Get transcript path from the session JSON we just updated
-TRANSCRIPT_PATH=$(jq -r '.transcript_path // ""' "$SESSION_FILE" 2>/dev/null)
+# TRANSCRIPT_PATH was pre-read from session file earlier
 SESSION_DIR="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME"
 
 copy_transcript "$TRANSCRIPT_PATH" "$SESSION_DIR" "$SESSION_ID"
