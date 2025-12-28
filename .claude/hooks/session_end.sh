@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 #
+# ╔════════════════════════════════════════════════════════════════════════════╗
+# ║  DO NOT MODIFY - This file is managed by claude-logger                     ║
+# ║  Source: https://github.com/my-entourage/claude-logger                     ║
+# ║  To update, re-run the installer from the claude-logger repository.        ║
+# ╚════════════════════════════════════════════════════════════════════════════╝
+#
 # Claude Tracker - Session End Hook
 # Captures final git state and marks session complete.
 #
@@ -19,6 +25,24 @@ if ! command -v jq &>/dev/null; then
 fi
 
 #######################################
+# Nickname validation
+# Returns 0 if valid, 1 if invalid
+# Valid: 1-39 chars, lowercase alphanumeric with dashes/underscores
+#######################################
+validate_nickname() {
+  local nick="$1"
+  # Check length and characters
+  if [ ${#nick} -lt 1 ] || [ ${#nick} -gt 39 ]; then
+    return 1
+  fi
+  # Check for valid characters only (lowercase alphanumeric, dash, underscore)
+  case "$nick" in
+    *[!a-z0-9_-]*) return 1 ;;
+  esac
+  return 0
+}
+
+#######################################
 # Timeout wrapper (macOS doesn't have timeout by default)
 #######################################
 run_with_timeout() {
@@ -29,6 +53,26 @@ run_with_timeout() {
   else
     # Fallback: run without timeout (accept small risk of hang)
     "$@"
+  fi
+}
+
+#######################################
+# Resolve project root (git root or fallback to cwd)
+# Attempts to find the git repository root directory.
+# Falls back to provided cwd if not in a git repo or on timeout.
+#######################################
+resolve_project_root() {
+  local dir="$1"
+  local git_timeout=3
+
+  # Try to get git root
+  local git_root
+  git_root=$(run_with_timeout "$git_timeout" git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
+
+  if [ -n "$git_root" ] && [ -d "$git_root" ]; then
+    echo "$git_root"
+  else
+    echo "$dir"
   fi
 }
 
@@ -50,10 +94,33 @@ if [ -z "$CWD" ] || [ ! -d "$CWD" ]; then
   CWD=$(pwd)
 fi
 
+# Resolve project root for session storage
+PROJECT_ROOT=$(resolve_project_root "$CWD")
+
+#######################################
+# Get user nickname (required for tracking)
+#######################################
+GITHUB_NICKNAME="${GITHUB_NICKNAME:-}"
+if [ -z "$GITHUB_NICKNAME" ]; then
+  echo "⚠️  GITHUB_NICKNAME not set - session not saved!" >&2
+  echo "   Add to your shell profile: export GITHUB_NICKNAME=\"your-github-name\"" >&2
+  exit 0
+fi
+
+# Normalize to lowercase
+GITHUB_NICKNAME=$(echo "$GITHUB_NICKNAME" | tr '[:upper:]' '[:lower:]')
+
+# Validate nickname
+if ! validate_nickname "$GITHUB_NICKNAME"; then
+  echo "Warning: GITHUB_NICKNAME '$GITHUB_NICKNAME' is invalid." >&2
+  echo "Session tracking skipped." >&2
+  exit 0
+fi
+
 #######################################
 # Locate session file
 #######################################
-SESSION_FILE="$CWD/.claude/sessions/$SESSION_ID.json"
+SESSION_FILE="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME/$SESSION_ID.json"
 
 # Only update if session file exists and is readable
 if [ ! -f "$SESSION_FILE" ] || [ ! -r "$SESSION_FILE" ]; then
@@ -159,5 +226,31 @@ if [ -s "$TMP_FILE" ] && jq -e '.' "$TMP_FILE" &>/dev/null; then
 else
   rm -f "$TMP_FILE" 2>/dev/null
 fi
+
+#######################################
+# Copy transcript to project-local sessions
+# This makes transcripts committable to git
+#######################################
+copy_transcript() {
+  local transcript_path="$1"
+  local dest_dir="$2"
+  local session_id="$3"
+
+  # Skip if no transcript path
+  [ -z "$transcript_path" ] && return 0
+
+  # Skip if transcript doesn't exist or is empty
+  [ ! -f "$transcript_path" ] && return 0
+  [ ! -s "$transcript_path" ] && return 0
+
+  # Copy transcript to sessions directory
+  cp "$transcript_path" "$dest_dir/${session_id}.jsonl" 2>/dev/null || true
+}
+
+# Get transcript path from the session JSON we just updated
+TRANSCRIPT_PATH=$(jq -r '.transcript_path // ""' "$SESSION_FILE" 2>/dev/null)
+SESSION_DIR="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME"
+
+copy_transcript "$TRANSCRIPT_PATH" "$SESSION_DIR" "$SESSION_ID"
 
 exit 0

@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 #
+# ╔════════════════════════════════════════════════════════════════════════════╗
+# ║  DO NOT MODIFY - This file is managed by claude-logger                     ║
+# ║  Source: https://github.com/my-entourage/claude-logger                     ║
+# ║  To update, re-run the installer from the claude-logger repository.        ║
+# ╚════════════════════════════════════════════════════════════════════════════╝
+#
 # Claude Tracker - Session Start Hook
 # Captures git state and config snapshot at session start.
 #
@@ -23,6 +29,24 @@ if ! command -v jq &>/dev/null; then
 fi
 
 #######################################
+# Nickname validation
+# Returns 0 if valid, 1 if invalid
+# Valid: 1-39 chars, lowercase alphanumeric with dashes/underscores
+#######################################
+validate_nickname() {
+  local nick="$1"
+  # Check length and characters
+  if [ ${#nick} -lt 1 ] || [ ${#nick} -gt 39 ]; then
+    return 1
+  fi
+  # Check for valid characters only (lowercase alphanumeric, dash, underscore)
+  case "$nick" in
+    *[!a-z0-9_-]*) return 1 ;;
+  esac
+  return 0
+}
+
+#######################################
 # Timeout wrapper (macOS doesn't have timeout by default)
 #######################################
 run_with_timeout() {
@@ -33,6 +57,26 @@ run_with_timeout() {
   else
     # Fallback: run without timeout (accept small risk of hang)
     "$@"
+  fi
+}
+
+#######################################
+# Resolve project root (git root or fallback to cwd)
+# Attempts to find the git repository root directory.
+# Falls back to provided cwd if not in a git repo or on timeout.
+#######################################
+resolve_project_root() {
+  local dir="$1"
+  local git_timeout=3
+
+  # Try to get git root
+  local git_root
+  git_root=$(run_with_timeout "$git_timeout" git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
+
+  if [ -n "$git_root" ] && [ -d "$git_root" ]; then
+    echo "$git_root"
+  else
+    echo "$dir"
   fi
 }
 
@@ -62,10 +106,36 @@ if [ -z "$CWD" ] || [ ! -d "$CWD" ]; then
   CWD=$(pwd)
 fi
 
+# Resolve project root for session storage
+# Sessions should always be stored at the git root, not in subdirectories
+PROJECT_ROOT=$(resolve_project_root "$CWD")
+
+#######################################
+# Get user nickname (required for tracking)
+#######################################
+GITHUB_NICKNAME="${GITHUB_NICKNAME:-}"
+if [ -z "$GITHUB_NICKNAME" ]; then
+  echo "⚠️  GITHUB_NICKNAME not set - session tracking disabled!" >&2
+  echo "   Add to your shell profile: export GITHUB_NICKNAME=\"your-github-name\"" >&2
+  echo "   Then restart your terminal or run: source ~/.zshrc" >&2
+  exit 0
+fi
+
+# Normalize to lowercase
+GITHUB_NICKNAME=$(echo "$GITHUB_NICKNAME" | tr '[:upper:]' '[:lower:]')
+
+# Validate nickname
+if ! validate_nickname "$GITHUB_NICKNAME"; then
+  echo "Warning: GITHUB_NICKNAME '$GITHUB_NICKNAME' is invalid." >&2
+  echo "Must be 1-39 characters, lowercase alphanumeric with dashes/underscores only." >&2
+  echo "Session tracking skipped." >&2
+  exit 0
+fi
+
 #######################################
 # Setup directories
 #######################################
-SESSIONS_DIR="$CWD/.claude/sessions"
+SESSIONS_DIR="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME"
 mkdir -p "$SESSIONS_DIR" 2>/dev/null || exit 0  # Can't create dir = can't track
 
 SESSION_FILE="$SESSIONS_DIR/$SESSION_ID.json"

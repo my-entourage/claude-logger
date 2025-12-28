@@ -865,5 +865,44 @@ fi
 
 cleanup_test_env
 
+#######################################
+# Test: Session end finds file in git root from subdirectory
+#######################################
+test_start "session_end: finds session file in git root from subdirectory"
+setup_test_env
+
+git -C "$TEST_TMPDIR" init -q
+mkdir -p "$TEST_TMPDIR/public"
+
+# Create session file in git root (simulating session_start behavior)
+mkdir -p "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-end-subdir.json"
+cat > "$session_file" << 'EOF'
+{
+  "schema_version": 1,
+  "session_id": "test-end-subdir",
+  "transcript_path": "",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2025-01-01T00:00:00Z",
+    "cwd": "/tmp/test",
+    "git": {"sha": "abc123", "branch": "main", "is_repo": true}
+  }
+}
+EOF
+
+# Run session_end with cwd pointing to subdirectory
+input='{"session_id":"test-end-subdir","cwd":"'"$TEST_TMPDIR/public"'","reason":"user_exit"}'
+run_hook "session_end.sh" "$input"
+
+# Check that session was updated (status should be complete)
+if jq -e '.status == "complete"' "$session_file" &>/dev/null; then
+  test_pass "Session end updated file in git root"
+else
+  test_fail "Session not updated to complete status"
+fi
+
+cleanup_test_env
+
 echo ""
 echo "session_end.sh tests complete"

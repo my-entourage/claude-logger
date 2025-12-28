@@ -579,5 +579,77 @@ fi
 
 cleanup_test_env
 
+#######################################
+# Test: Session saved to git root from subdirectory
+#######################################
+test_start "session_start: saves session to git root when in subdirectory"
+setup_test_env
+
+# Initialize git repo at TEST_TMPDIR
+git -C "$TEST_TMPDIR" init -q
+
+# Create a subdirectory
+mkdir -p "$TEST_TMPDIR/public/assets"
+
+# Run hook with cwd pointing to subdirectory
+input='{"session_id":"test-subdir","cwd":"'"$TEST_TMPDIR/public"'","source":"compact"}'
+run_hook "session_start.sh" "$input"
+
+# Session file should be in git root, not subdirectory
+root_session="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-subdir.json"
+subdir_session="$TEST_TMPDIR/public/.claude/sessions/$GITHUB_NICKNAME/test-subdir.json"
+
+if assert_file_exists "$root_session" && [ ! -f "$subdir_session" ]; then
+  test_pass "Session saved to git root"
+else
+  if [ -f "$subdir_session" ]; then
+    test_fail "Session incorrectly saved to subdirectory"
+  else
+    test_fail "Session file not found in expected location"
+  fi
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Non-git directory uses cwd as-is
+#######################################
+test_start "session_start: uses cwd when not in git repo"
+setup_test_env
+
+# Don't initialize git - TEST_TMPDIR is not a repo
+input='{"session_id":"test-nongit-cwd","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-nongit-cwd.json"
+if assert_file_exists "$session_file"; then
+  test_pass "Session saved to cwd in non-git directory"
+else
+  test_fail "Session file not created"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Deeply nested subdirectory resolves to git root
+#######################################
+test_start "session_start: deeply nested subdir resolves to git root"
+setup_test_env
+
+git -C "$TEST_TMPDIR" init -q
+mkdir -p "$TEST_TMPDIR/src/components/ui/buttons"
+
+input='{"session_id":"test-deep","cwd":"'"$TEST_TMPDIR/src/components/ui/buttons"'","source":"compact"}'
+run_hook "session_start.sh" "$input"
+
+root_session="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-deep.json"
+if assert_file_exists "$root_session"; then
+  test_pass "Deeply nested subdir resolved to git root"
+else
+  test_fail "Session not found at git root"
+fi
+
+cleanup_test_env
+
 echo ""
 echo "session_start.sh tests complete"
