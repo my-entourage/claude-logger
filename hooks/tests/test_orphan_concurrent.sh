@@ -325,5 +325,123 @@ fi
 
 cleanup_test_env
 
+#######################################
+# Test: Lock file with non-existent PID
+# Note: The hook has a 5-second lock timeout, so this may take up to 6s
+#######################################
+test_start "concurrent: handles lock from dead process"
+setup_test_env
+
+# Create lock file with PID that doesn't exist
+echo "999999999" > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/.lock"
+
+input='{"session_id":"test-dead-lock","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+
+start_time=$(date +%s)
+run_hook "session_start.sh" "$input"
+end_time=$(date +%s)
+elapsed=$((end_time - start_time))
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-dead-lock.json"
+# Hook has 5-second lock timeout, so we allow up to 7 seconds
+if [ -f "$session_file" ] && [ $elapsed -lt 8 ]; then
+  test_pass "Dead process lock handled (${elapsed}s)"
+else
+  test_fail "Dead process lock not handled properly (${elapsed}s)"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Lock file with invalid content
+#######################################
+test_start "concurrent: handles corrupt lock file"
+setup_test_env
+
+# Create lock file with non-PID content
+echo "not-a-pid" > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/.lock"
+
+input='{"session_id":"test-corrupt-lock","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-corrupt-lock.json"
+if [ -f "$session_file" ]; then
+  test_pass "Corrupt lock file handled"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Same session start and end simultaneously
+#######################################
+test_start "concurrent: same session start+end race"
+setup_test_env
+
+git -C "$TEST_TMPDIR" init -q
+git -C "$TEST_TMPDIR" config user.email "test@test.com"
+git -C "$TEST_TMPDIR" config user.name "Test"
+echo "test" > "$TEST_TMPDIR/file.txt"
+git -C "$TEST_TMPDIR" add file.txt
+git -C "$TEST_TMPDIR" commit -q -m "Initial"
+
+# Run start and end for same session simultaneously
+start_input='{"session_id":"race-session","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+end_input='{"session_id":"race-session","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
+
+run_hook "session_start.sh" "$start_input" &
+pid1=$!
+run_hook "session_end.sh" "$end_input" &
+pid2=$!
+
+wait $pid1
+wait $pid2
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/race-session.json"
+if [ -f "$session_file" ]; then
+  status=$(jq -r '.status' "$session_file" 2>/dev/null)
+  test_pass "Race condition handled (final status: $status)"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Empty lock file
+#######################################
+test_start "concurrent: handles empty lock file"
+setup_test_env
+
+# Create empty lock file
+touch "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/.lock"
+
+input='{"session_id":"test-empty-lock","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-empty-lock.json"
+if [ -f "$session_file" ]; then
+  test_pass "Empty lock file handled"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Lock file is a directory
+#######################################
+test_start "concurrent: handles .lock as directory"
+setup_test_env
+
+# Remove lock file if exists and create directory instead
+rm -f "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/.lock" 2>/dev/null
+mkdir -p "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/.lock"
+
+input='{"session_id":"test-lock-dir","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input" 2>/dev/null
+
+# Hook should handle gracefully
+if [ $? -eq 0 ]; then
+  test_pass ".lock directory handled gracefully"
+fi
+
+cleanup_test_env
+
 echo ""
 echo "Orphan and concurrent session tests complete"

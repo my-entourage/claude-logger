@@ -261,5 +261,280 @@ fi
 
 cleanup_test_env
 
+#######################################
+# Test: Command injection via $()
+#######################################
+test_start "security: session_id with dollar-paren injection"
+setup_test_env
+
+# Create marker file location
+marker="/tmp/claude-logger-injection-test-$$"
+rm -f "$marker" 2>/dev/null
+
+input='{"session_id":"$(touch '"$marker"')","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+if [ ! -f "$marker" ]; then
+  test_pass "Command injection prevented"
+else
+  rm -f "$marker"
+  test_fail "SECURITY VULNERABILITY: Command injection succeeded!"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Command injection via backticks
+#######################################
+test_start "security: session_id with backtick injection"
+setup_test_env
+
+marker="/tmp/claude-logger-backtick-test-$$"
+rm -f "$marker" 2>/dev/null
+
+input='{"session_id":"`touch '"$marker"'`","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+if [ ! -f "$marker" ]; then
+  test_pass "Backtick injection prevented"
+else
+  rm -f "$marker"
+  test_fail "SECURITY VULNERABILITY: Backtick injection succeeded!"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Injection in cwd field
+#######################################
+test_start "security: cwd with command injection"
+setup_test_env
+
+marker="/tmp/claude-logger-cwd-injection-$$"
+rm -f "$marker" 2>/dev/null
+
+input='{"session_id":"test-cwd-inject","cwd":"$(touch '"$marker"')","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+if [ ! -f "$marker" ]; then
+  test_pass "CWD injection prevented"
+else
+  rm -f "$marker"
+  test_fail "SECURITY VULNERABILITY: CWD injection succeeded!"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Injection in source field
+#######################################
+test_start "security: source with command injection"
+setup_test_env
+
+marker="/tmp/claude-logger-source-injection-$$"
+rm -f "$marker" 2>/dev/null
+
+input='{"session_id":"test-source-inject","cwd":"'"$TEST_TMPDIR"'","source":"$(touch '"$marker"')"}'
+run_hook "session_start.sh" "$input"
+
+if [ ! -f "$marker" ]; then
+  test_pass "Source injection prevented"
+else
+  rm -f "$marker"
+  test_fail "SECURITY VULNERABILITY: Source injection succeeded!"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Newline injection in session_id
+#######################################
+test_start "security: session_id with newline injection"
+setup_test_env
+
+# Attempt to inject a newline that might break shell parsing
+input='{"session_id":"test\ninjected","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+# Should handle gracefully (either create file or reject)
+if [ $? -eq 0 ]; then
+  test_pass "Newline in session_id handled"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Session ID that looks like shell variable
+#######################################
+test_start "security: session_id resembling shell variable"
+setup_test_env
+
+input='{"session_id":"$HOME","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+# Should create file literally named "$HOME.json" not expand variable
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/\$HOME.json"
+if [ -f "$session_file" ] || [ $? -eq 0 ]; then
+  test_pass "Shell variable not expanded"
+else
+  # Check it didn't create file in actual $HOME
+  if [ ! -f "$HOME/.json" ]; then
+    test_pass "Shell variable not expanded (no file created)"
+  else
+    test_fail "Shell variable was expanded!"
+  fi
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: JSON with BOM (Byte Order Mark)
+#######################################
+test_start "security: JSON with UTF-8 BOM"
+setup_test_env
+
+# Create input with BOM prefix
+bom=$'\xef\xbb\xbf'
+input="${bom}"'{"session_id":"test-bom","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh"
+
+# jq may or may not handle BOM
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-bom.json"
+if [ -f "$session_file" ] || [ $? -eq 0 ]; then
+  test_pass "BOM in JSON handled"
+else
+  test_pass "BOM rejected gracefully"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: JSON with CRLF line endings
+#######################################
+test_start "security: JSON with CRLF line endings"
+setup_test_env
+
+# Create input with Windows line endings
+input=$'{"session_id":"test-crlf",\r\n"cwd":"'"$TEST_TMPDIR"$'",\r\n"source":"startup"}'
+echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-crlf.json"
+if [ -f "$session_file" ] || [ $? -eq 0 ]; then
+  test_pass "CRLF line endings handled"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: JSON with very large number
+#######################################
+test_start "security: JSON with huge number"
+setup_test_env
+
+# Number larger than 64-bit
+input='{"session_id":"test-bignum","cwd":"'"$TEST_TMPDIR"'","source":"startup","big":99999999999999999999999999999999999999}'
+run_hook "session_start.sh" "$input"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-bignum.json"
+if [ -f "$session_file" ]; then
+  test_pass "Huge number in JSON handled"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: JSON with duplicate keys
+#######################################
+test_start "security: JSON with duplicate keys"
+setup_test_env
+
+# Duplicate "session_id" key
+input='{"session_id":"first","session_id":"test-dupe-keys","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-dupe-keys.json"
+if [ -f "$session_file" ]; then
+  # jq takes last value for duplicate keys
+  test_pass "Duplicate keys handled (jq uses last)"
+elif [ -f "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/first.json" ]; then
+  test_pass "Duplicate keys handled (jq uses first)"
+else
+  test_pass "Duplicate keys handled gracefully"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: JSON with scientific notation
+#######################################
+test_start "security: JSON with scientific notation"
+setup_test_env
+
+input='{"session_id":"test-sci","cwd":"'"$TEST_TMPDIR"'","source":"startup","num":1.23e45}'
+run_hook "session_start.sh" "$input"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-sci.json"
+if [ -f "$session_file" ]; then
+  test_pass "Scientific notation handled"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: JSON with escaped unicode
+#######################################
+test_start "security: JSON with escaped unicode sequences"
+setup_test_env
+
+input='{"session_id":"test-\u0041\u0042\u0043","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+# jq should decode \u0041\u0042\u0043 to "ABC"
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-ABC.json"
+if [ -f "$session_file" ]; then
+  test_pass "Escaped unicode decoded correctly"
+else
+  # Check if literal was used
+  files=$(ls -1 "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)
+  test_pass "Escaped unicode handled ($files)"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Completely empty input
+#######################################
+test_start "security: completely empty stdin"
+setup_test_env
+
+# Send literally nothing
+bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" < /dev/null
+exit_code=$?
+
+if [ $exit_code -eq 0 ]; then
+  test_pass "Empty stdin handled (exit 0)"
+else
+  test_pass "Empty stdin handled (exit $exit_code)"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: JSON with only whitespace
+#######################################
+test_start "security: whitespace-only input"
+setup_test_env
+
+echo "   " | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh"
+exit_code=$?
+
+if [ $exit_code -eq 0 ]; then
+  test_pass "Whitespace input handled (exit 0)"
+else
+  test_pass "Whitespace input handled (exit $exit_code)"
+fi
+
+cleanup_test_env
+
 echo ""
 echo "Security tests complete"

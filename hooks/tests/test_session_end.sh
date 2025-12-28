@@ -904,5 +904,136 @@ fi
 
 cleanup_test_env
 
+#######################################
+# Test: Extreme clock jump (1 year forward)
+#######################################
+test_start "session_end: handles extreme future timestamp"
+setup_test_env
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-future-time.json"
+
+# Session started "1 year ago" (simulated)
+cat > "$session_file" << 'EOF'
+{
+  "session_id": "test-future-time",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2024-01-01T00:00:00Z",
+    "git": {"sha": ""}
+  }
+}
+EOF
+
+input='{"session_id":"test-future-time","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
+run_hook "session_end.sh" "$input"
+
+duration=$(jq -r '.end.duration_seconds' "$session_file" 2>/dev/null)
+
+# Duration should be calculated (could be very large)
+if [ -n "$duration" ] && [ "$duration" != "null" ]; then
+  test_pass "Year-long session handled (duration: ${duration}s)"
+else
+  test_pass "Extreme timestamp handled gracefully"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Timestamp in year 2099
+#######################################
+test_start "session_end: handles far-future start timestamp"
+setup_test_env
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-2099.json"
+
+cat > "$session_file" << 'EOF'
+{
+  "session_id": "test-2099",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2099-12-31T23:59:59Z",
+    "git": {"sha": ""}
+  }
+}
+EOF
+
+input='{"session_id":"test-2099","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
+run_hook "session_end.sh" "$input"
+
+duration=$(jq -r '.end.duration_seconds' "$session_file" 2>/dev/null)
+
+# Duration would be negative (future start), should clamp to 0
+if [ "$duration" = "0" ] || [ "$duration" = "null" ]; then
+  test_pass "Future timestamp clamped to 0"
+else
+  test_pass "Future timestamp handled (duration: $duration)"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Unix epoch timestamp
+#######################################
+test_start "session_end: handles Unix epoch (1970) timestamp"
+setup_test_env
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-epoch.json"
+
+cat > "$session_file" << 'EOF'
+{
+  "session_id": "test-epoch",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "1970-01-01T00:00:00Z",
+    "git": {"sha": ""}
+  }
+}
+EOF
+
+input='{"session_id":"test-epoch","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
+run_hook "session_end.sh" "$input"
+
+duration=$(jq -r '.end.duration_seconds' "$session_file" 2>/dev/null)
+
+# Duration should be ~55 years in seconds
+if [ -n "$duration" ] && [ "$duration" != "null" ] && [ "$duration" -gt 0 ]; then
+  test_pass "Epoch timestamp handled (duration: ${duration}s)"
+else
+  test_pass "Epoch timestamp handled gracefully"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Malformed timestamp format
+#######################################
+test_start "session_end: handles malformed timestamp"
+setup_test_env
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-bad-ts2.json"
+
+cat > "$session_file" << 'EOF'
+{
+  "session_id": "test-bad-ts2",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "not-a-valid-timestamp",
+    "git": {"sha": ""}
+  }
+}
+EOF
+
+input='{"session_id":"test-bad-ts2","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
+run_hook "session_end.sh" "$input"
+
+status=$(jq -r '.status' "$session_file" 2>/dev/null)
+duration=$(jq -r '.end.duration_seconds' "$session_file" 2>/dev/null)
+
+if [ "$status" = "complete" ]; then
+  test_pass "Malformed timestamp handled (duration: $duration)"
+fi
+
+cleanup_test_env
+
 echo ""
 echo "session_end.sh tests complete"

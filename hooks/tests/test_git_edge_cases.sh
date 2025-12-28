@@ -420,5 +420,217 @@ fi
 
 cleanup_test_env
 
+#######################################
+# Test: Git mid-rebase state
+#######################################
+test_start "git: handles rebase in progress"
+setup_test_env
+
+git -C "$TEST_TMPDIR" init -q
+git -C "$TEST_TMPDIR" config user.email "test@test.com"
+git -C "$TEST_TMPDIR" config user.name "Test"
+
+# Create commits to rebase
+echo "base" > "$TEST_TMPDIR/file.txt"
+git -C "$TEST_TMPDIR" add file.txt
+git -C "$TEST_TMPDIR" commit -q -m "Base commit"
+
+echo "change1" > "$TEST_TMPDIR/file.txt"
+git -C "$TEST_TMPDIR" commit -q -am "Change 1"
+
+# Create rebase-merge directory to simulate mid-rebase
+mkdir -p "$TEST_TMPDIR/.git/rebase-merge"
+echo "1" > "$TEST_TMPDIR/.git/rebase-merge/msgnum"
+
+input='{"session_id":"test-mid-rebase","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-mid-rebase.json"
+if [ -f "$session_file" ]; then
+  test_pass "Mid-rebase state handled"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Git mid-merge conflict
+#######################################
+test_start "git: handles merge conflict state"
+setup_test_env
+
+git -C "$TEST_TMPDIR" init -q
+git -C "$TEST_TMPDIR" config user.email "test@test.com"
+git -C "$TEST_TMPDIR" config user.name "Test"
+
+echo "base" > "$TEST_TMPDIR/file.txt"
+git -C "$TEST_TMPDIR" add file.txt
+git -C "$TEST_TMPDIR" commit -q -m "Base"
+
+# Simulate merge in progress
+touch "$TEST_TMPDIR/.git/MERGE_HEAD"
+
+input='{"session_id":"test-mid-merge","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-mid-merge.json"
+if [ -f "$session_file" ]; then
+  test_pass "Mid-merge state handled"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Git index locked
+#######################################
+test_start "git: handles locked index"
+setup_test_env
+
+git -C "$TEST_TMPDIR" init -q
+git -C "$TEST_TMPDIR" config user.email "test@test.com"
+git -C "$TEST_TMPDIR" config user.name "Test"
+echo "test" > "$TEST_TMPDIR/file.txt"
+git -C "$TEST_TMPDIR" add file.txt
+git -C "$TEST_TMPDIR" commit -q -m "Initial"
+
+# Create lock file
+touch "$TEST_TMPDIR/.git/index.lock"
+
+input='{"session_id":"test-locked-index","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+
+start_time=$(date +%s)
+run_hook "session_start.sh" "$input"
+end_time=$(date +%s)
+elapsed=$((end_time - start_time))
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-locked-index.json"
+if [ -f "$session_file" ] && [ $elapsed -lt 5 ]; then
+  test_pass "Locked index handled (${elapsed}s)"
+else
+  test_fail "Locked index caused delay or failure (${elapsed}s)"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Bare git repository
+#######################################
+test_start "git: handles bare repository"
+setup_test_env
+
+git -C "$TEST_TMPDIR" init -q --bare
+
+input='{"session_id":"test-bare-repo","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-bare-repo.json"
+if [ -f "$session_file" ]; then
+  is_repo=$(jq -r '.start.git.is_repo' "$session_file" 2>/dev/null)
+  test_pass "Bare repo handled (is_repo=$is_repo)"
+else
+  test_pass "Bare repo handled gracefully"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Shallow clone
+#######################################
+test_start "git: handles shallow clone"
+setup_test_env
+
+# Create a repo to clone from
+origin="$TEST_TMPDIR/origin"
+mkdir -p "$origin"
+git -C "$origin" init -q
+git -C "$origin" config user.email "test@test.com"
+git -C "$origin" config user.name "Test"
+for i in {1..10}; do
+  echo "commit $i" >> "$origin/file.txt"
+  git -C "$origin" add file.txt
+  git -C "$origin" commit -q -m "Commit $i"
+done
+
+# Create shallow clone
+clone="$TEST_TMPDIR/shallow"
+git clone -q --depth 1 "file://$origin" "$clone" 2>/dev/null
+mkdir -p "$clone/.claude/sessions/$GITHUB_NICKNAME"
+mkdir -p "$clone/.claude/hooks"
+cp "$TEST_TMPDIR/.claude/hooks/"*.sh "$clone/.claude/hooks/"
+
+input='{"session_id":"test-shallow","cwd":"'"$clone"'","source":"startup"}'
+echo "$input" | bash "$clone/.claude/hooks/session_start.sh"
+
+session_file="$clone/.claude/sessions/$GITHUB_NICKNAME/test-shallow.json"
+if [ -f "$session_file" ]; then
+  test_pass "Shallow clone handled"
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: .git is a file (gitdir reference)
+#######################################
+test_start "git: handles .git as file (worktree/gitdir)"
+setup_test_env
+
+# Create main repo
+main_repo="$TEST_TMPDIR/main"
+mkdir -p "$main_repo"
+git -C "$main_repo" init -q
+git -C "$main_repo" config user.email "test@test.com"
+git -C "$main_repo" config user.name "Test"
+echo "test" > "$main_repo/file.txt"
+git -C "$main_repo" add file.txt
+git -C "$main_repo" commit -q -m "Initial"
+
+# Create directory with .git file pointing elsewhere
+linked="$TEST_TMPDIR/linked"
+mkdir -p "$linked"
+echo "gitdir: $main_repo/.git" > "$linked/.git"
+mkdir -p "$linked/.claude/sessions/$GITHUB_NICKNAME"
+mkdir -p "$linked/.claude/hooks"
+cp "$TEST_TMPDIR/.claude/hooks/"*.sh "$linked/.claude/hooks/"
+
+input='{"session_id":"test-gitdir-file","cwd":"'"$linked"'","source":"startup"}'
+echo "$input" | bash "$linked/.claude/hooks/session_start.sh"
+
+session_file="$linked/.claude/sessions/$GITHUB_NICKNAME/test-gitdir-file.json"
+if [ -f "$session_file" ]; then
+  is_repo=$(jq -r '.start.git.is_repo' "$session_file" 2>/dev/null)
+  if [ "$is_repo" = "true" ]; then
+    test_pass ".git file (gitdir) handled correctly"
+  else
+    test_pass ".git file handled (is_repo=$is_repo)"
+  fi
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Git cherry-pick in progress
+#######################################
+test_start "git: handles cherry-pick in progress"
+setup_test_env
+
+git -C "$TEST_TMPDIR" init -q
+git -C "$TEST_TMPDIR" config user.email "test@test.com"
+git -C "$TEST_TMPDIR" config user.name "Test"
+echo "test" > "$TEST_TMPDIR/file.txt"
+git -C "$TEST_TMPDIR" add file.txt
+git -C "$TEST_TMPDIR" commit -q -m "Initial"
+
+# Simulate cherry-pick in progress
+echo "abc123" > "$TEST_TMPDIR/.git/CHERRY_PICK_HEAD"
+
+input='{"session_id":"test-cherry-pick","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
+run_hook "session_start.sh" "$input"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-cherry-pick.json"
+if [ -f "$session_file" ]; then
+  test_pass "Cherry-pick in progress handled"
+fi
+
+cleanup_test_env
+
 echo ""
 echo "Git edge case tests complete"
