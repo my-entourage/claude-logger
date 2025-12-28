@@ -1,21 +1,25 @@
 {
   "schema_version": 1,
-  "session_id": "09694511-e64b-4770-b7eb-d6a00a2c6e0f",
-  "transcript_path": "/Users/ia/.claude/projects/-Users-ia-Documents-code--orgs-my-entourage-claude-logger/09694511-e64b-4770-b7eb-d6a00a2c6e0f.jsonl",
+  "session_id": "cf4d3219-b989-4b32-891e-b51d3c8bc858",
+  "transcript_path": "/Users/ia/.claude/projects/-Users-ia-Documents-code--orgs-my-entourage-claude-logger/cf4d3219-b989-4b32-891e-b51d3c8bc858.jsonl",
   "status": "complete",
   "start": {
-    "timestamp": "2025-12-24T03:14:52Z",
+    "timestamp": "2025-12-25T08:41:36Z",
     "cwd": "/Users/ia/Documents/code/@orgs/my-entourage/claude-logger",
-    "source": "compact",
+    "source": "startup",
     "git": {
-      "sha": "f25f4f173e8c320c4cef0b59cbf34c0a1c2222dd",
-      "branch": "main",
+      "sha": "9bdafed84e081099d81bc01c613f7a1442899e8d",
+      "branch": "development",
       "is_repo": true,
       "dirty": true,
       "dirty_files": [
-        ".claude/sessions/.lock"
+        ".claude/hooks/session_end.sh",
+        ".claude/hooks/session_start.sh",
+        ".claude/sessions/09694511-e64b-4770-b7eb-d6a00a2c6e0f.json",
+        ".claude/sessions/cfbd5e2c-045b-4567-9acf-199abef3ab6a.json",
+        ".claude/sessions/ii-vo/"
       ],
-      "dirty_count": 1
+      "dirty_count": 5
     },
     "config": {
       "claude_md": null,
@@ -40,11 +44,11 @@
     }
   },
   "end": {
-    "timestamp": "2025-12-24T03:25:09Z",
+    "timestamp": "2025-12-25T08:48:07Z",
     "reason": "prompt_input_exit",
-    "duration_seconds": 617,
+    "duration_seconds": 391,
     "git": {
-      "sha": "f25f4f173e8c320c4cef0b59cbf34c0a1c2222dd",
+      "sha": "9bdafed84e081099d81bc01c613f7a1442899e8d",
       "dirty": true,
       "commits_made": []
     }
