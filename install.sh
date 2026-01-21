@@ -4,6 +4,15 @@ set -euo pipefail
 echo "Installing Claude Tracker..."
 
 #######################################
+# Parse --global flag
+#######################################
+GLOBAL_MODE=false
+if [ "${1:-}" = "--global" ]; then
+  GLOBAL_MODE=true
+  shift
+fi
+
+#######################################
 # Nickname validation
 # Returns 0 if valid, 1 if invalid
 # Valid: 1-39 chars, lowercase alphanumeric with dashes/underscores
@@ -21,17 +30,27 @@ validate_nickname() {
   return 0
 }
 
-# Determine project directory (where to install)
-if [ -n "${1:-}" ]; then
-  PROJECT_DIR="$1"
+# Determine installation directory
+if [ "$GLOBAL_MODE" = true ]; then
+  INSTALL_DIR="$HOME/.claude"
+  SESSIONS_DIR="$HOME/.claude-logger/sessions"
+  PROJECT_DIR=""  # Not applicable for global mode
 else
-  PROJECT_DIR=$(pwd)
-fi
+  # Determine project directory (where to install)
+  if [ -n "${1:-}" ]; then
+    PROJECT_DIR="$1"
+  else
+    PROJECT_DIR=$(pwd)
+  fi
 
-# Validate it's a reasonable project directory
-if [ ! -d "$PROJECT_DIR" ]; then
-  echo "Error: $PROJECT_DIR is not a directory"
-  exit 1
+  # Validate it's a reasonable project directory
+  if [ ! -d "$PROJECT_DIR" ]; then
+    echo "Error: $PROJECT_DIR is not a directory"
+    exit 1
+  fi
+
+  INSTALL_DIR="$PROJECT_DIR/.claude"
+  SESSIONS_DIR="$PROJECT_DIR/.claude/sessions"
 fi
 
 #######################################
@@ -88,7 +107,13 @@ if [ -z "$GITHUB_NICKNAME" ]; then
 fi
 
 # Create directories
-mkdir -p "$PROJECT_DIR/.claude/hooks"
+mkdir -p "$INSTALL_DIR/hooks"
+
+# For global mode, also create the sessions directory and marker
+if [ "$GLOBAL_MODE" = true ]; then
+  mkdir -p "$HOME/.claude-logger"
+  touch "$HOME/.claude-logger/global-mode"
+fi
 
 # Get the directory where this script lives
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -111,14 +136,29 @@ hook_exists() {
 }
 
 # Copy hooks
-cp "$SCRIPT_DIR/hooks/session_start.sh" "$PROJECT_DIR/.claude/hooks/"
-cp "$SCRIPT_DIR/hooks/session_end.sh" "$PROJECT_DIR/.claude/hooks/"
-chmod +x "$PROJECT_DIR/.claude/hooks/session_start.sh"
-chmod +x "$PROJECT_DIR/.claude/hooks/session_end.sh"
+cp "$SCRIPT_DIR/hooks/session_start.sh" "$INSTALL_DIR/hooks/"
+cp "$SCRIPT_DIR/hooks/session_end.sh" "$INSTALL_DIR/hooks/"
+chmod +x "$INSTALL_DIR/hooks/session_start.sh"
+chmod +x "$INSTALL_DIR/hooks/session_end.sh"
 
 # Handle settings.json - need to APPEND hooks, not replace
-SETTINGS_FILE="$PROJECT_DIR/.claude/settings.json"
+SETTINGS_FILE="$INSTALL_DIR/settings.json"
 HOOKS_CONFIG="$SCRIPT_DIR/hooks-config.json"
+
+# For global mode, we need to generate hook config with absolute paths
+# Create a temp file with the processed config
+HOOKS_CONFIG_PROCESSED=$(mktemp)
+trap "rm -f '$HOOKS_CONFIG_PROCESSED'" EXIT
+
+if [ "$GLOBAL_MODE" = true ]; then
+  jq \
+    --arg start_cmd "$INSTALL_DIR/hooks/session_start.sh" \
+    --arg end_cmd "$INSTALL_DIR/hooks/session_end.sh" \
+    '.hooks.SessionStart[0].hooks[0].command = $start_cmd | .hooks.SessionEnd[0].hooks[0].command = $end_cmd' \
+    "$HOOKS_CONFIG" > "$HOOKS_CONFIG_PROCESSED"
+else
+  cp "$HOOKS_CONFIG" "$HOOKS_CONFIG_PROCESSED"
+fi
 
 if [ -f "$SETTINGS_FILE" ]; then
   # Backup existing
@@ -144,16 +184,16 @@ if [ -f "$SETTINGS_FILE" ]; then
     # Neither hook exists, check if hooks object exists
     if jq -e '.hooks.SessionStart' "$SETTINGS_FILE" > /dev/null 2>&1; then
       # Hooks array exists but doesn't contain our hooks, append
-      TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG")
-      TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG")
+      TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG_PROCESSED")
+      TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG_PROCESSED")
 
       jq --argjson start "$TRACKER_START_HOOK" --argjson end "$TRACKER_END_HOOK" \
         '.hooks.SessionStart += [$start] | .hooks.SessionEnd += [$end]' \
         "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
     else
       # No existing hooks, add ours (don't overwrite other settings)
-      TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG")
-      TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG")
+      TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG_PROCESSED")
+      TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG_PROCESSED")
 
       jq --argjson start "$TRACKER_START_HOOK" --argjson end "$TRACKER_END_HOOK" \
         '.hooks.SessionStart = [$start] | .hooks.SessionEnd = [$end]' \
@@ -162,7 +202,7 @@ if [ -f "$SETTINGS_FILE" ]; then
   else
     # One exists but not the other - add the missing one
     if [ "$START_EXISTS" = false ]; then
-      TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG")
+      TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG_PROCESSED")
       if jq -e '.hooks.SessionStart' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --argjson start "$TRACKER_START_HOOK" '.hooks.SessionStart += [$start]' \
           "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
@@ -172,7 +212,7 @@ if [ -f "$SETTINGS_FILE" ]; then
       fi
     fi
     if [ "$END_EXISTS" = false ]; then
-      TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG")
+      TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG_PROCESSED")
       if jq -e '.hooks.SessionEnd' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --argjson end "$TRACKER_END_HOOK" '.hooks.SessionEnd += [$end]' \
           "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
@@ -186,7 +226,7 @@ if [ -f "$SETTINGS_FILE" ]; then
   #######################################
   # Add permissions to protect hooks from modification
   #######################################
-  HOOK_PERMISSIONS=$(jq '.permissions.deny // []' "$HOOKS_CONFIG")
+  HOOK_PERMISSIONS=$(jq '.permissions.deny // []' "$HOOKS_CONFIG_PROCESSED")
 
   # Merge with existing permissions (avoid duplicates)
   if jq -e '.permissions.deny' "$SETTINGS_FILE" > /dev/null 2>&1; then
@@ -202,7 +242,7 @@ if [ -f "$SETTINGS_FILE" ]; then
   fi
 else
   # No existing settings, copy hooks config
-  cp "$HOOKS_CONFIG" "$SETTINGS_FILE"
+  cp "$HOOKS_CONFIG_PROCESSED" "$SETTINGS_FILE"
 fi
 
 #######################################
@@ -261,10 +301,12 @@ check_gitignore_issues() {
   return 0
 }
 
-# Run gitignore check
+# Run gitignore check (skip for global mode)
 GITIGNORE_OK=true
-if ! check_gitignore_issues "$PROJECT_DIR"; then
-  GITIGNORE_OK=false
+if [ "$GLOBAL_MODE" = false ] && [ -n "$PROJECT_DIR" ]; then
+  if ! check_gitignore_issues "$PROJECT_DIR"; then
+    GITIGNORE_OK=false
+  fi
 fi
 
 echo ""
@@ -283,5 +325,9 @@ if [ "$NICKNAME_FROM_ENV" = false ]; then
   echo ""
 fi
 
-echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/$GITHUB_NICKNAME/"
+if [ "$GLOBAL_MODE" = true ]; then
+  echo "Session data will be saved to: $HOME/.claude-logger/sessions/$GITHUB_NICKNAME/"
+else
+  echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/$GITHUB_NICKNAME/"
+fi
 echo ""

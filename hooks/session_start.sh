@@ -149,9 +149,17 @@ if ! validate_nickname "$GITHUB_NICKNAME"; then
 fi
 
 #######################################
+# Determine storage location (global vs project)
+#######################################
+if [ -f "$HOME/.claude-logger/global-mode" ]; then
+  SESSIONS_DIR="$HOME/.claude-logger/sessions/$GITHUB_NICKNAME"
+else
+  SESSIONS_DIR="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME"
+fi
+
+#######################################
 # Setup directories
 #######################################
-SESSIONS_DIR="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME"
 mkdir -p "$SESSIONS_DIR" 2>/dev/null || exit 0  # Can't create dir = can't track
 
 SESSION_FILE="$SESSIONS_DIR/$SESSION_ID.json"

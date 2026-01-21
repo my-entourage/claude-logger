@@ -134,9 +134,18 @@ if ! validate_nickname "$GITHUB_NICKNAME"; then
 fi
 
 #######################################
+# Determine storage location (global vs project)
+#######################################
+if [ -f "$HOME/.claude-logger/global-mode" ]; then
+  SESSIONS_BASE="$HOME/.claude-logger/sessions/$GITHUB_NICKNAME"
+else
+  SESSIONS_BASE="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME"
+fi
+
+#######################################
 # Locate session file
 #######################################
-SESSION_FILE="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME/$SESSION_ID.json"
+SESSION_FILE="$SESSIONS_BASE/$SESSION_ID.json"
 
 # Only update if session file exists and is readable
 if [ ! -f "$SESSION_FILE" ] || [ ! -r "$SESSION_FILE" ]; then
@@ -276,8 +285,7 @@ copy_transcript() {
 }
 
 # TRANSCRIPT_PATH was pre-read from session file earlier
-SESSION_DIR="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME"
-
-copy_transcript "$TRANSCRIPT_PATH" "$SESSION_DIR" "$SESSION_ID"
+# SESSION_DIR uses SESSIONS_BASE which was set earlier based on global mode
+copy_transcript "$TRANSCRIPT_PATH" "$SESSIONS_BASE" "$SESSION_ID"
 
 exit 0
