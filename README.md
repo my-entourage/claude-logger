@@ -46,7 +46,7 @@ Session data is captured automatically on every Claude Code session when `CLAUDE
 
 ## How It Works
 
-Uses Claude Code's `SessionStart` and `SessionEnd` hooks to capture enrichment data.
+Uses Claude Code's `SessionStart`, `SessionEnd`, and `PreCompact` hooks to capture enrichment data.
 
 **Claude's data:** `~/.claude/projects/{project}/{session_id}.jsonl`
 
@@ -96,9 +96,31 @@ The installer also adds `permissions.deny` rules to prevent Claude from accident
       "dirty": false,
       "commits_made": ["def456"]
     }
+  },
+  "compaction_events": [
+    {
+      "timestamp": "2025-12-19T21:15:00Z",
+      "trigger": "manual",
+      "transcript_snapshot": "abc-123_precompact_001.jsonl"
+    }
+  ],
+  "clear_event": {
+    "timestamp": "2025-12-19T21:30:00Z",
+    "transcript_snapshot": "abc-123_preclear.jsonl"
   }
 }
 ```
+
+### Transcript Snapshots
+
+When you `/compact` or `/clear` a conversation, Claude Logger preserves the full transcript before the operation:
+
+| Event | Snapshot File | When Captured |
+|-------|--------------|---------------|
+| `/compact` | `{session_id}_precompact_001.jsonl` | Before each compaction |
+| `/clear` | `{session_id}_preclear.jsonl` | Before clearing |
+
+Multiple compactions increment the counter: `_precompact_001.jsonl`, `_precompact_002.jsonl`, etc.
 
 ## Documentation
 

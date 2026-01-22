@@ -50,6 +50,7 @@ setup_test_env() {
   # Copy hooks to test directory
   cp "$(dirname "$0")/../session_start.sh" "$TEST_TMPDIR/.claude/hooks/"
   cp "$(dirname "$0")/../session_end.sh" "$TEST_TMPDIR/.claude/hooks/"
+  cp "$(dirname "$0")/../pre_compact.sh" "$TEST_TMPDIR/.claude/hooks/"
   chmod +x "$TEST_TMPDIR/.claude/hooks/"*.sh
 }
 

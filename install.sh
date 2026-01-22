@@ -138,8 +138,10 @@ hook_exists() {
 # Copy hooks
 cp "$SCRIPT_DIR/hooks/session_start.sh" "$INSTALL_DIR/hooks/"
 cp "$SCRIPT_DIR/hooks/session_end.sh" "$INSTALL_DIR/hooks/"
+cp "$SCRIPT_DIR/hooks/pre_compact.sh" "$INSTALL_DIR/hooks/"
 chmod +x "$INSTALL_DIR/hooks/session_start.sh"
 chmod +x "$INSTALL_DIR/hooks/session_end.sh"
+chmod +x "$INSTALL_DIR/hooks/pre_compact.sh"
 
 # Handle settings.json - need to APPEND hooks, not replace
 SETTINGS_FILE="$INSTALL_DIR/settings.json"
@@ -154,7 +156,8 @@ if [ "$GLOBAL_MODE" = true ]; then
   jq \
     --arg start_cmd "$INSTALL_DIR/hooks/session_start.sh" \
     --arg end_cmd "$INSTALL_DIR/hooks/session_end.sh" \
-    '.hooks.SessionStart[0].hooks[0].command = $start_cmd | .hooks.SessionEnd[0].hooks[0].command = $end_cmd' \
+    --arg precompact_cmd "$INSTALL_DIR/hooks/pre_compact.sh" \
+    '.hooks.SessionStart[0].hooks[0].command = $start_cmd | .hooks.SessionEnd[0].hooks[0].command = $end_cmd | .hooks.PreCompact[0].hooks[0].command = $precompact_cmd' \
     "$HOOKS_CONFIG" > "$HOOKS_CONFIG_PROCESSED"
 else
   cp "$HOOKS_CONFIG" "$HOOKS_CONFIG_PROCESSED"
@@ -167,6 +170,7 @@ if [ -f "$SETTINGS_FILE" ]; then
   # Check for duplicate hooks before adding
   START_EXISTS=false
   END_EXISTS=false
+  PRECOMPACT_EXISTS=false
 
   if hook_exists "$SETTINGS_FILE" "SessionStart" "session_start.sh"; then
     START_EXISTS=true
@@ -178,29 +182,15 @@ if [ -f "$SETTINGS_FILE" ]; then
     echo "Note: SessionEnd hook already configured, skipping..."
   fi
 
-  if [ "$START_EXISTS" = true ] && [ "$END_EXISTS" = true ]; then
+  if hook_exists "$SETTINGS_FILE" "PreCompact" "pre_compact.sh"; then
+    PRECOMPACT_EXISTS=true
+    echo "Note: PreCompact hook already configured, skipping..."
+  fi
+
+  if [ "$START_EXISTS" = true ] && [ "$END_EXISTS" = true ] && [ "$PRECOMPACT_EXISTS" = true ]; then
     echo "Hooks already installed, skipping hook configuration."
-  elif [ "$START_EXISTS" = false ] && [ "$END_EXISTS" = false ]; then
-    # Neither hook exists, check if hooks object exists
-    if jq -e '.hooks.SessionStart' "$SETTINGS_FILE" > /dev/null 2>&1; then
-      # Hooks array exists but doesn't contain our hooks, append
-      TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG_PROCESSED")
-      TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG_PROCESSED")
-
-      jq --argjson start "$TRACKER_START_HOOK" --argjson end "$TRACKER_END_HOOK" \
-        '.hooks.SessionStart += [$start] | .hooks.SessionEnd += [$end]' \
-        "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
-    else
-      # No existing hooks, add ours (don't overwrite other settings)
-      TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG_PROCESSED")
-      TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG_PROCESSED")
-
-      jq --argjson start "$TRACKER_START_HOOK" --argjson end "$TRACKER_END_HOOK" \
-        '.hooks.SessionStart = [$start] | .hooks.SessionEnd = [$end]' \
-        "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
-    fi
   else
-    # One exists but not the other - add the missing one
+    # Add missing hooks
     if [ "$START_EXISTS" = false ]; then
       TRACKER_START_HOOK=$(jq '.hooks.SessionStart[0]' "$HOOKS_CONFIG_PROCESSED")
       if jq -e '.hooks.SessionStart' "$SETTINGS_FILE" > /dev/null 2>&1; then
@@ -211,6 +201,7 @@ if [ -f "$SETTINGS_FILE" ]; then
           "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
       fi
     fi
+
     if [ "$END_EXISTS" = false ]; then
       TRACKER_END_HOOK=$(jq '.hooks.SessionEnd[0]' "$HOOKS_CONFIG_PROCESSED")
       if jq -e '.hooks.SessionEnd' "$SETTINGS_FILE" > /dev/null 2>&1; then
@@ -218,6 +209,17 @@ if [ -f "$SETTINGS_FILE" ]; then
           "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
       else
         jq --argjson end "$TRACKER_END_HOOK" '.hooks.SessionEnd = [$end]' \
+          "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+      fi
+    fi
+
+    if [ "$PRECOMPACT_EXISTS" = false ]; then
+      TRACKER_PRECOMPACT_HOOK=$(jq '.hooks.PreCompact[0]' "$HOOKS_CONFIG_PROCESSED")
+      if jq -e '.hooks.PreCompact' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --argjson precompact "$TRACKER_PRECOMPACT_HOOK" '.hooks.PreCompact += [$precompact]' \
+          "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+      else
+        jq --argjson precompact "$TRACKER_PRECOMPACT_HOOK" '.hooks.PreCompact = [$precompact]' \
           "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
       fi
     fi

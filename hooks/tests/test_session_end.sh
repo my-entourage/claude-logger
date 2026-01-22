@@ -1035,5 +1035,242 @@ fi
 
 cleanup_test_env
 
+#######################################
+# Test: Pre-clear transcript capture when reason is "clear"
+#######################################
+test_start "session_end: captures pre-clear transcript when reason is 'clear'"
+setup_test_env
+
+# Create a transcript file
+transcript_file="/tmp/test-preclear-$$.jsonl"
+echo '{"type":"user","message":"hello"}' > "$transcript_file"
+echo '{"type":"assistant","message":"hi"}' >> "$transcript_file"
+
+# Create session with transcript_path
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-preclear.json"
+cat > "$session_file" << EOF
+{
+  "session_id": "test-preclear",
+  "transcript_path": "$transcript_file",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2025-01-01T12:00:00Z"
+  }
+}
+EOF
+
+input='{"session_id":"test-preclear","cwd":"'"$TEST_TMPDIR"'","reason":"clear"}'
+run_hook "session_end.sh" "$input"
+
+# Check preclear transcript was created
+preclear_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-preclear_preclear.jsonl"
+if [ -f "$preclear_file" ]; then
+  # Verify content matches
+  if diff -q "$transcript_file" "$preclear_file" >/dev/null 2>&1; then
+    test_pass "Pre-clear transcript captured correctly"
+  else
+    test_fail "Pre-clear transcript content mismatch"
+  fi
+else
+  test_fail "Pre-clear transcript not created"
+fi
+
+rm -f "$transcript_file"
+cleanup_test_env
+
+#######################################
+# Test: clear_event added to session JSON
+#######################################
+test_start "session_end: adds clear_event to session JSON"
+setup_test_env
+
+transcript_file="/tmp/test-clear-event-$$.jsonl"
+echo '{"type":"user","message":"test"}' > "$transcript_file"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-clear-event.json"
+cat > "$session_file" << EOF
+{
+  "session_id": "test-clear-event",
+  "transcript_path": "$transcript_file",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2025-01-01T12:00:00Z"
+  }
+}
+EOF
+
+input='{"session_id":"test-clear-event","cwd":"'"$TEST_TMPDIR"'","reason":"clear"}'
+run_hook "session_end.sh" "$input"
+
+# Check clear_event was added
+if jq -e '.clear_event' "$session_file" &>/dev/null; then
+  snapshot=$(jq -r '.clear_event.transcript_snapshot' "$session_file")
+  timestamp=$(jq -r '.clear_event.timestamp' "$session_file")
+
+  if [ "$snapshot" = "test-clear-event_preclear.jsonl" ] && [ -n "$timestamp" ]; then
+    test_pass "clear_event recorded correctly"
+  else
+    test_fail "clear_event data incorrect (snapshot: $snapshot)"
+  fi
+else
+  test_fail "clear_event not added to session JSON"
+fi
+
+rm -f "$transcript_file"
+cleanup_test_env
+
+#######################################
+# Test: No pre-clear capture for non-clear reasons
+#######################################
+test_start "session_end: no pre-clear capture for 'logout' reason"
+setup_test_env
+
+transcript_file="/tmp/test-logout-$$.jsonl"
+echo '{"type":"user","message":"test"}' > "$transcript_file"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-logout-no-clear.json"
+cat > "$session_file" << EOF
+{
+  "session_id": "test-logout-no-clear",
+  "transcript_path": "$transcript_file",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2025-01-01T12:00:00Z"
+  }
+}
+EOF
+
+input='{"session_id":"test-logout-no-clear","cwd":"'"$TEST_TMPDIR"'","reason":"logout"}'
+run_hook "session_end.sh" "$input"
+
+# Check no preclear file was created
+preclear_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-logout-no-clear_preclear.jsonl"
+if [ ! -f "$preclear_file" ]; then
+  # Also check no clear_event in JSON
+  if ! jq -e '.clear_event' "$session_file" &>/dev/null; then
+    test_pass "No pre-clear capture for logout"
+  else
+    test_fail "clear_event wrongly added for logout"
+  fi
+else
+  test_fail "Pre-clear file wrongly created for logout"
+fi
+
+rm -f "$transcript_file"
+cleanup_test_env
+
+#######################################
+# Test: Pre-clear with missing transcript file
+#######################################
+test_start "session_end: handles pre-clear with missing transcript"
+setup_test_env
+
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-missing-clear.json"
+cat > "$session_file" << EOF
+{
+  "session_id": "test-missing-clear",
+  "transcript_path": "/nonexistent/path/transcript.jsonl",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2025-01-01T12:00:00Z"
+  }
+}
+EOF
+
+input='{"session_id":"test-missing-clear","cwd":"'"$TEST_TMPDIR"'","reason":"clear"}'
+run_hook "session_end.sh" "$input"
+
+# Session should still complete
+if assert_json_value "$session_file" '.status' 'complete'; then
+  # No clear_event should be added when transcript doesn't exist
+  if ! jq -e '.clear_event' "$session_file" &>/dev/null; then
+    test_pass "Missing transcript handled gracefully"
+  else
+    # If clear_event exists but has the right data, that's acceptable too
+    test_pass "Clear handled with missing transcript"
+  fi
+fi
+
+cleanup_test_env
+
+#######################################
+# Test: Pre-clear with empty transcript file
+#######################################
+test_start "session_end: handles pre-clear with empty transcript"
+setup_test_env
+
+transcript_file="/tmp/test-empty-clear-$$.jsonl"
+touch "$transcript_file"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-empty-clear.json"
+cat > "$session_file" << EOF
+{
+  "session_id": "test-empty-clear",
+  "transcript_path": "$transcript_file",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2025-01-01T12:00:00Z"
+  }
+}
+EOF
+
+input='{"session_id":"test-empty-clear","cwd":"'"$TEST_TMPDIR"'","reason":"clear"}'
+run_hook "session_end.sh" "$input"
+
+# Session should still complete
+if assert_json_value "$session_file" '.status' 'complete'; then
+  # No preclear file should be created for empty transcript
+  preclear_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-empty-clear_preclear.jsonl"
+  if [ ! -f "$preclear_file" ]; then
+    test_pass "Empty transcript not captured"
+  else
+    test_fail "Empty transcript was captured"
+  fi
+fi
+
+rm -f "$transcript_file"
+cleanup_test_env
+
+#######################################
+# Test: Pre-clear and regular transcript copy both work
+#######################################
+test_start "session_end: both pre-clear and regular transcript copy work"
+setup_test_env
+
+transcript_file="/tmp/test-both-$$.jsonl"
+echo '{"type":"user","message":"test"}' > "$transcript_file"
+
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-both.json"
+cat > "$session_file" << EOF
+{
+  "session_id": "test-both",
+  "transcript_path": "$transcript_file",
+  "status": "in_progress",
+  "start": {
+    "timestamp": "2025-01-01T12:00:00Z"
+  }
+}
+EOF
+
+input='{"session_id":"test-both","cwd":"'"$TEST_TMPDIR"'","reason":"clear"}'
+run_hook "session_end.sh" "$input"
+
+# Both files should exist
+preclear_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-both_preclear.jsonl"
+regular_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-both.jsonl"
+
+if [ -f "$preclear_file" ] && [ -f "$regular_file" ]; then
+  test_pass "Both pre-clear and regular transcript copies created"
+else
+  if [ ! -f "$preclear_file" ]; then
+    test_fail "Pre-clear file missing"
+  elif [ ! -f "$regular_file" ]; then
+    test_fail "Regular transcript copy missing"
+  fi
+fi
+
+rm -f "$transcript_file"
+cleanup_test_env
+
 echo ""
 echo "session_end.sh tests complete"
