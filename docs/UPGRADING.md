@@ -1,10 +1,12 @@
 # Upgrading Claude Logger
 
-This guide covers upgrading from a previous version of Claude Logger to the current version with user-based session organization.
+This guide covers upgrading from a previous version of Claude Logger to the current version with user-based session organization and optional global installation.
 
 ## What Changed
 
-The main change is how sessions are organized:
+### Session Organization (Per-User)
+
+Sessions are now organized by user:
 
 | Version | Session Path |
 |---------|--------------|
@@ -12,6 +14,15 @@ The main change is how sessions are organized:
 | New | `.claude/sessions/{nickname}/{session_id}.json` |
 
 This allows teams to track sessions per-user and requires the `CLAUDE_LOGGER_USER` environment variable.
+
+### Global Installation Mode (New)
+
+You can now install claude-logger once for all projects using `--global`:
+
+| Mode | Command | Sessions Stored At |
+|------|---------|-------------------|
+| Project (existing) | `./install.sh /path/to/project` | `PROJECT/.claude/sessions/{nickname}/` |
+| Global (new) | `./install.sh --global` | `~/.claude-logger/sessions/{nickname}/` |
 
 ## Upgrade Steps
 
@@ -82,6 +93,20 @@ done
 ```
 
 ## Upgrading Multiple Projects
+
+### Option A: Switch to Global Mode (Recommended)
+
+Instead of maintaining hooks in each project, use global mode:
+
+```bash
+./install.sh --global
+```
+
+This installs hooks once at `~/.claude/hooks/` and stores all sessions at `~/.claude-logger/sessions/`. Each session records which project it was run in via the `cwd` field.
+
+**Note:** Global mode takes precedence. Once installed globally, even project-installed hooks will route sessions to the global location.
+
+### Option B: Update Each Project
 
 Run the installer for each project:
 

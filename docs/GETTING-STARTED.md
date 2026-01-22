@@ -47,13 +47,30 @@ git clone https://github.com/my-entourage/claude-logger.git
 cd claude-logger
 ```
 
-### Step 2: Install to Your Project
+### Step 2: Choose Installation Mode
+
+Claude Logger supports two installation modes:
+
+| Mode | Command | Best For |
+|------|---------|----------|
+| **Global** | `./install.sh --global` | Personal use, track all projects in one place |
+| **Project** | `./install.sh /path/to/project` | Team projects, sessions stored with project |
+
+#### Option A: Global Installation (Recommended for Personal Use)
+
+```bash
+./install.sh --global
+```
+
+This installs hooks to `~/.claude/hooks/` and stores all sessions centrally at `~/.claude-logger/sessions/{nickname}/`. Sessions from any project are collected in one location.
+
+#### Option B: Project Installation
 
 ```bash
 ./install.sh /path/to/your-project
 ```
 
-The installer will prompt you for your nickname (typically your GitHub username). This is required for session tracking.
+This installs hooks to the project's `.claude/hooks/` directory. Sessions are stored at `PROJECT/.claude/sessions/{nickname}/`.
 
 Or install to current directory:
 
@@ -61,6 +78,8 @@ Or install to current directory:
 cd /path/to/your-project
 /path/to/claude-logger/install.sh
 ```
+
+The installer will prompt you for your nickname (typically your GitHub username). This is required for session tracking.
 
 ### Step 3: Configure Your Environment
 
@@ -102,11 +121,12 @@ Once installed, Claude Logger works automatically. There's nothing you need to d
 
 ### Where Sessions Are Stored
 
-Sessions are stored in your project at:
+Session storage location depends on your installation mode:
 
-```
-.claude/sessions/{nickname}/{session-id}.json
-```
+| Mode | Session Path |
+|------|--------------|
+| Global | `~/.claude-logger/sessions/{nickname}/{session-id}.json` |
+| Project | `PROJECT/.claude/sessions/{nickname}/{session-id}.json` |
 
 Each team member's sessions are organized in their own subdirectory based on their `CLAUDE_LOGGER_USER`.
 
@@ -115,17 +135,20 @@ Each team member's sessions are organized in their own subdirectory based on the
 After your first session, explore the data:
 
 ```bash
+# For global installation:
+SESSION_DIR=~/.claude-logger/sessions/$CLAUDE_LOGGER_USER
+
+# For project installation:
+SESSION_DIR=.claude/sessions/$CLAUDE_LOGGER_USER
+
 # List your sessions
-ls .claude/sessions/$CLAUDE_LOGGER_USER/
+ls $SESSION_DIR/
 
 # View a session (pretty-printed)
-cat .claude/sessions/$CLAUDE_LOGGER_USER/*.json | jq .
+cat $SESSION_DIR/*.json | jq .
 
 # View most recent session
-ls -t .claude/sessions/$CLAUDE_LOGGER_USER/*.json | head -1 | xargs cat | jq .
-
-# List all team members' sessions
-ls .claude/sessions/
+ls -t $SESSION_DIR/*.json | head -1 | xargs cat | jq .
 ```
 
 ## Understanding Session Data
@@ -191,13 +214,27 @@ Each session file contains:
 
 ## Installing to Multiple Projects
 
+### Option A: Global Installation (Recommended)
+
+Use `--global` once to track sessions from all projects:
+
+```bash
+./install.sh --global
+```
+
+All sessions are stored centrally at `~/.claude-logger/sessions/`. Each session records which project (`cwd`) it was run in.
+
+### Option B: Per-Project Installation
+
+Install separately to each project:
+
 ```bash
 ./install.sh ~/project-one
 ./install.sh ~/project-two
 ./install.sh ~/project-three
 ```
 
-Each project maintains its own session history independently.
+Each project maintains its own session history independently in `PROJECT/.claude/sessions/`.
 
 ## Querying Session Data
 

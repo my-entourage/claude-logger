@@ -32,8 +32,9 @@ brew install jq        # macOS
 git clone https://github.com/my-entourage/claude-logger.git
 cd claude-logger
 
-# 3. Install to your project (prompts for your nickname)
-./install.sh ~/path/to/your-project
+# 3. Install (choose one)
+./install.sh --global              # User-level: all projects, sessions in ~/.claude-logger/
+./install.sh ~/path/to/project     # Project-level: single project, sessions in project/.claude/
 
 # 4. Add to your shell profile (.bashrc, .zshrc, etc.)
 export CLAUDE_LOGGER_USER="your-nickname"
@@ -48,8 +49,13 @@ Session data is captured automatically on every Claude Code session when `CLAUDE
 Uses Claude Code's `SessionStart` and `SessionEnd` hooks to capture enrichment data.
 
 **Claude's data:** `~/.claude/projects/{project}/{session_id}.jsonl`
-**Our enrichment:** `.claude/sessions/{nickname}/{session_id}.json` (project-local, per-user)
-**Copied transcript:** `.claude/sessions/{nickname}/{session_id}.jsonl` (copied at session end)
+
+**Our enrichment (depends on install mode):**
+
+| Mode | Sessions Stored At |
+|------|-------------------|
+| Global (`--global`) | `~/.claude-logger/sessions/{nickname}/{session_id}.json` |
+| Project (default) | `PROJECT/.claude/sessions/{nickname}/{session_id}.json` |
 
 Linked by `session_id`. Query both together for complete picture.
 
