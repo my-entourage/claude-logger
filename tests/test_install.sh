@@ -169,6 +169,9 @@ cleanup_test
 test_start "empty nickname rejected"
 setup_test
 
+# Unset env var to force interactive prompt
+unset CLAUDE_LOGGER_USER
+
 # Send empty then valid nickname
 output=$(echo -e "\ntestuser" | bash "$REPO_DIR/install.sh" "$TEST_TMPDIR/project" 2>&1)
 
@@ -186,6 +189,9 @@ cleanup_test
 test_start "invalid characters rejected"
 setup_test
 
+# Unset env var to force interactive prompt
+unset CLAUDE_LOGGER_USER
+
 # Send invalid then valid nickname
 output=$(echo -e "test@user!\ntestuser" | bash "$REPO_DIR/install.sh" "$TEST_TMPDIR/project" 2>&1)
 
@@ -202,6 +208,9 @@ cleanup_test
 #######################################
 test_start "uppercase nickname normalized to lowercase"
 setup_test
+
+# Unset env var to force interactive prompt
+unset CLAUDE_LOGGER_USER
 
 run_install "$TEST_TMPDIR/project" "TestUser" > /dev/null
 
@@ -324,7 +333,8 @@ cleanup_test
 test_start "success message shows session path"
 setup_test
 
-output=$(run_install "$TEST_TMPDIR/project" "myname")
+# Set env var to expected value so output message matches
+CLAUDE_LOGGER_USER="myname" output=$(run_install "$TEST_TMPDIR/project" "myname")
 
 if echo "$output" | grep -q "sessions/myname"; then
   test_pass

@@ -190,7 +190,8 @@ cleanup_test
 test_start "--global success message shows global session path"
 setup_test
 
-output=$(run_global_install "testuser")
+# Set env var to expected value so output message matches
+CLAUDE_LOGGER_USER="testuser" output=$(run_global_install "testuser")
 
 if echo "$output" | grep -q "\.claude-logger/sessions/testuser"; then
   test_pass
