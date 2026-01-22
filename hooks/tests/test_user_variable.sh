@@ -1,56 +1,56 @@
 #!/usr/bin/env bash
 #
-# Tests for GITHUB_NICKNAME handling, validation, and multi-user support
+# Tests for CLAUDE_LOGGER_USER handling, validation, and multi-user support
 #
 
 #######################################
-# Test: Unset GITHUB_NICKNAME shows warning
+# Test: Unset CLAUDE_LOGGER_USER shows warning
 #######################################
-test_start "nickname: unset shows warning message"
+test_start "user: unset shows warning message"
 setup_test_env
 
-# Unset the nickname that setup_test_env sets
-unset GITHUB_NICKNAME
+# Unset the user variable that setup_test_env sets
+unset CLAUDE_LOGGER_USER
 
 input='{"session_id":"test-unset","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 output=$(echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>&1)
 
-if echo "$output" | grep -q "GITHUB_NICKNAME not set"; then
+if echo "$output" | grep -q "CLAUDE_LOGGER_USER not set"; then
   test_pass "Warning message shown"
 else
   test_fail "Warning message not shown: $output"
 fi
 
 # Restore for cleanup
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
 # Test: Warning goes to stderr, not stdout
 #######################################
-test_start "nickname: warning goes to stderr not stdout"
+test_start "user: warning goes to stderr not stdout"
 setup_test_env
-unset GITHUB_NICKNAME
+unset CLAUDE_LOGGER_USER
 
 input='{"session_id":"test-stderr","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 stdout_output=$(echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>/dev/null)
 stderr_output=$(echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>&1 >/dev/null)
 
-if [ -z "$stdout_output" ] && echo "$stderr_output" | grep -q "GITHUB_NICKNAME"; then
+if [ -z "$stdout_output" ] && echo "$stderr_output" | grep -q "CLAUDE_LOGGER_USER"; then
   test_pass "Warning on stderr, stdout empty"
 else
   test_fail "stdout='$stdout_output' stderr='$stderr_output'"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
-# Test: Unset GITHUB_NICKNAME exits 0
+# Test: Unset CLAUDE_LOGGER_USER exits 0
 #######################################
-test_start "nickname: unset exits with code 0"
+test_start "user: unset exits with code 0"
 setup_test_env
-unset GITHUB_NICKNAME
+unset CLAUDE_LOGGER_USER
 
 input='{"session_id":"test-exit","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>/dev/null
@@ -62,15 +62,15 @@ else
   test_fail "Exit code was $exit_code, expected 0"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
-# Test: Unset GITHUB_NICKNAME creates no file
+# Test: Unset CLAUDE_LOGGER_USER creates no file
 #######################################
-test_start "nickname: unset creates no session file"
+test_start "user: unset creates no session file"
 setup_test_env
-unset GITHUB_NICKNAME
+unset CLAUDE_LOGGER_USER
 
 input='{"session_id":"test-nofile","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>/dev/null
@@ -83,34 +83,34 @@ else
   test_fail "Found $file_count files when none expected"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
-# Test: Empty string GITHUB_NICKNAME shows warning
+# Test: Empty string CLAUDE_LOGGER_USER shows warning
 #######################################
-test_start "nickname: empty string shows warning"
+test_start "user: empty string shows warning"
 setup_test_env
-export GITHUB_NICKNAME=""
+export CLAUDE_LOGGER_USER=""
 
 input='{"session_id":"test-empty","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 output=$(echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>&1)
 
-if echo "$output" | grep -q "GITHUB_NICKNAME not set"; then
+if echo "$output" | grep -q "CLAUDE_LOGGER_USER not set"; then
   test_pass "Empty string triggers warning"
 else
   test_fail "Empty string did not trigger warning"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
-# Test: Whitespace-only GITHUB_NICKNAME
+# Test: Whitespace-only CLAUDE_LOGGER_USER
 #######################################
-test_start "nickname: whitespace-only handled"
+test_start "user: whitespace-only handled"
 setup_test_env
-export GITHUB_NICKNAME="   "
+export CLAUDE_LOGGER_USER="   "
 
 input='{"session_id":"test-whitespace","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 output=$(echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>&1)
@@ -128,7 +128,7 @@ else
   fi
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 echo ""
@@ -141,9 +141,9 @@ echo "Warning tests complete"
 #######################################
 # Test: Uppercase normalized to lowercase
 #######################################
-test_start "nickname: UPPERCASE normalized to lowercase"
+test_start "user: UPPERCASE normalized to lowercase"
 setup_test_env
-export GITHUB_NICKNAME="TESTUSER"
+export CLAUDE_LOGGER_USER="TESTUSER"
 
 input='{"session_id":"test-upper","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
@@ -154,15 +154,15 @@ else
   test_fail "File not in lowercase directory"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
 # Test: MixedCase normalized
 #######################################
-test_start "nickname: MixedCase normalized to lowercase"
+test_start "user: MixedCase normalized to lowercase"
 setup_test_env
-export GITHUB_NICKNAME="TestUser123"
+export CLAUDE_LOGGER_USER="TestUser123"
 
 input='{"session_id":"test-mixed","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
@@ -173,125 +173,125 @@ else
   test_fail "File not in lowercase directory"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
-# Test: 40+ character nickname rejected
+# Test: 40+ character username rejected
 #######################################
-test_start "nickname: 40+ chars rejected"
+test_start "user: 40+ chars rejected"
 setup_test_env
-export GITHUB_NICKNAME="abcdefghijklmnopqrstuvwxyz1234567890abcd"  # 40 chars
+export CLAUDE_LOGGER_USER="abcdefghijklmnopqrstuvwxyz1234567890abcd"  # 40 chars
 
 input='{"session_id":"test-long","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 output=$(echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>&1)
 
 if echo "$output" | grep -q "invalid"; then
-  test_pass "40-char nickname rejected"
+  test_pass "40-char username rejected"
 else
   file_count=$(find "$TEST_TMPDIR/.claude/sessions" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
   if [ "$file_count" -eq 0 ]; then
-    test_pass "40-char nickname rejected (no file)"
+    test_pass "40-char username rejected (no file)"
   else
-    test_fail "40-char nickname should be rejected"
+    test_fail "40-char username should be rejected"
   fi
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
-# Test: Single character nickname valid
+# Test: Single character username valid
 #######################################
-test_start "nickname: single char 'a' is valid"
+test_start "user: single char 'a' is valid"
 setup_test_env
-export GITHUB_NICKNAME="a"
+export CLAUDE_LOGGER_USER="a"
 
 input='{"session_id":"test-single","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
 if [ -f "$TEST_TMPDIR/.claude/sessions/a/test-single.json" ]; then
-  test_pass "Single char nickname valid"
+  test_pass "Single char username valid"
 else
-  test_fail "Single char nickname should be valid"
+  test_fail "Single char username should be valid"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
-# Test: Numbers-only nickname valid
+# Test: Numbers-only username valid
 #######################################
-test_start "nickname: numbers-only '123' is valid"
+test_start "user: numbers-only '123' is valid"
 setup_test_env
-export GITHUB_NICKNAME="123"
+export CLAUDE_LOGGER_USER="123"
 
 input='{"session_id":"test-numbers","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
 if [ -f "$TEST_TMPDIR/.claude/sessions/123/test-numbers.json" ]; then
-  test_pass "Numbers-only nickname valid"
+  test_pass "Numbers-only username valid"
 else
-  test_fail "Numbers-only nickname should be valid"
+  test_fail "Numbers-only username should be valid"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
-# Test: Nickname with spaces rejected
+# Test: Username with spaces rejected
 #######################################
-test_start "nickname: spaces rejected"
+test_start "user: spaces rejected"
 setup_test_env
-export GITHUB_NICKNAME="user name"
+export CLAUDE_LOGGER_USER="user name"
 
 input='{"session_id":"test-spaces","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 output=$(echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>&1)
 
 if echo "$output" | grep -q "invalid"; then
-  test_pass "Spaces in nickname rejected"
+  test_pass "Spaces in username rejected"
 else
   file_count=$(find "$TEST_TMPDIR/.claude/sessions" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
   if [ "$file_count" -eq 0 ]; then
-    test_pass "Spaces in nickname rejected (no file)"
+    test_pass "Spaces in username rejected (no file)"
   else
-    test_fail "Spaces in nickname should be rejected"
+    test_fail "Spaces in username should be rejected"
   fi
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
 # Test: Special characters rejected
 #######################################
-test_start "nickname: special chars '@' rejected"
+test_start "user: special chars '@' rejected"
 setup_test_env
-export GITHUB_NICKNAME="user@name"
+export CLAUDE_LOGGER_USER="user@name"
 
 input='{"session_id":"test-special","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 output=$(echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>&1)
 
 if echo "$output" | grep -q "invalid"; then
-  test_pass "@ in nickname rejected"
+  test_pass "@ in username rejected"
 else
   file_count=$(find "$TEST_TMPDIR/.claude/sessions" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
   if [ "$file_count" -eq 0 ]; then
-    test_pass "@ in nickname rejected (no file)"
+    test_pass "@ in username rejected (no file)"
   else
-    test_fail "@ in nickname should be rejected"
+    test_fail "@ in username should be rejected"
   fi
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
 # Test: Path traversal attempt rejected
 #######################################
-test_start "nickname: path traversal '../etc' rejected"
+test_start "user: path traversal '../etc' rejected"
 setup_test_env
-export GITHUB_NICKNAME="../etc"
+export CLAUDE_LOGGER_USER="../etc"
 
 input='{"session_id":"test-traversal","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 output=$(echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>&1)
@@ -309,15 +309,15 @@ else
   fi
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
-# Test: Flag-like nickname '--help'
+# Test: Flag-like username '--help'
 #######################################
-test_start "nickname: flag-like '--help' handled"
+test_start "user: flag-like '--help' handled"
 setup_test_env
-export GITHUB_NICKNAME="--help"
+export CLAUDE_LOGGER_USER="--help"
 
 input='{"session_id":"test-flag","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 output=$(echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh" 2>&1)
@@ -334,15 +334,15 @@ else
   fi
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
 # Test: Mixed dashes and underscores valid
 #######################################
-test_start "nickname: 'a-b_c-d' is valid"
+test_start "user: 'a-b_c-d' is valid"
 setup_test_env
-export GITHUB_NICKNAME="a-b_c-d"
+export CLAUDE_LOGGER_USER="a-b_c-d"
 
 input='{"session_id":"test-mixed-sep","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
@@ -353,26 +353,26 @@ else
   test_fail "Mixed dashes/underscores should be valid"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
 # Test: 39 characters (max valid)
 #######################################
-test_start "nickname: 39 chars (max) is valid"
+test_start "user: 39 chars (max) is valid"
 setup_test_env
-export GITHUB_NICKNAME="abcdefghijklmnopqrstuvwxyz1234567890abc"  # exactly 39
+export CLAUDE_LOGGER_USER="abcdefghijklmnopqrstuvwxyz1234567890abc"  # exactly 39
 
 input='{"session_id":"test-max","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
 if [ -f "$TEST_TMPDIR/.claude/sessions/abcdefghijklmnopqrstuvwxyz1234567890abc/test-max.json" ]; then
-  test_pass "39-char nickname valid"
+  test_pass "39-char username valid"
 else
-  test_fail "39-char nickname should be valid (max length)"
+  test_fail "39-char username should be valid (max length)"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 echo ""
@@ -389,12 +389,12 @@ test_start "multiuser: two users same project"
 setup_test_env
 
 # User 1 creates a session
-export GITHUB_NICKNAME="alice"
+export CLAUDE_LOGGER_USER="alice"
 input='{"session_id":"alice-session","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
 # User 2 creates a session
-export GITHUB_NICKNAME="bob"
+export CLAUDE_LOGGER_USER="bob"
 input='{"session_id":"bob-session","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
@@ -406,7 +406,7 @@ else
   test_fail "Users should have separate session directories"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
@@ -418,11 +418,11 @@ setup_test_env
 # Check that lock files are in user-specific directories
 # This is implicit in the current design: locks are at $SESSIONS_DIR/.lock
 
-export GITHUB_NICKNAME="alice"
+export CLAUDE_LOGGER_USER="alice"
 mkdir -p "$TEST_TMPDIR/.claude/sessions/alice"
 touch "$TEST_TMPDIR/.claude/sessions/alice/.lock"
 
-export GITHUB_NICKNAME="bob"
+export CLAUDE_LOGGER_USER="bob"
 mkdir -p "$TEST_TMPDIR/.claude/sessions/bob"
 touch "$TEST_TMPDIR/.claude/sessions/bob/.lock"
 
@@ -434,7 +434,7 @@ else
   test_fail "Lock files should be per-user"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
@@ -444,7 +444,7 @@ test_start "multiuser: orphan detection scoped to user"
 setup_test_env
 
 # Create an "orphan" session for alice (old, status=active)
-export GITHUB_NICKNAME="alice"
+export CLAUDE_LOGGER_USER="alice"
 mkdir -p "$TEST_TMPDIR/.claude/sessions/alice"
 cat > "$TEST_TMPDIR/.claude/sessions/alice/orphan-alice.json" << 'EOF'
 {"session_id":"orphan-alice","status":"active","start":{"timestamp":"2024-01-01T00:00:00Z"}}
@@ -452,14 +452,14 @@ EOF
 touch -t 202401010000 "$TEST_TMPDIR/.claude/sessions/alice/orphan-alice.json"
 
 # Create a valid session for bob
-export GITHUB_NICKNAME="bob"
+export CLAUDE_LOGGER_USER="bob"
 mkdir -p "$TEST_TMPDIR/.claude/sessions/bob"
 cat > "$TEST_TMPDIR/.claude/sessions/bob/valid-bob.json" << 'EOF'
 {"session_id":"valid-bob","status":"active","start":{"timestamp":"2024-01-01T00:00:00Z"}}
 EOF
 
 # Now alice starts a new session (should mark alice's orphan, not bob's)
-export GITHUB_NICKNAME="alice"
+export CLAUDE_LOGGER_USER="alice"
 input='{"session_id":"new-alice","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
@@ -475,15 +475,15 @@ else
   test_fail "Bob's session was modified (status=$bob_status)"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 #######################################
-# Test: Valid nickname creates correct directory structure
+# Test: Valid username creates correct directory structure
 #######################################
-test_start "multiuser: valid nickname creates sessions/nickname/ dir"
+test_start "multiuser: valid username creates sessions/username/ dir"
 setup_test_env
-export GITHUB_NICKNAME="myuser"
+export CLAUDE_LOGGER_USER="myuser"
 
 input='{"session_id":"test-structure","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
@@ -495,11 +495,11 @@ else
   test_fail "Expected .claude/sessions/myuser/test-structure.json"
 fi
 
-export GITHUB_NICKNAME="test-user"
+export CLAUDE_LOGGER_USER="test-user"
 cleanup_test_env
 
 echo ""
 echo "Multi-user tests complete"
 
 echo ""
-echo "test_github_nickname.sh complete"
+echo "test_user_variable.sh complete"

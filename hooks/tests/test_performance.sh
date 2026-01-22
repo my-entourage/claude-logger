@@ -116,7 +116,7 @@ end_time=$(get_time_ms)
 
 elapsed_ms=$((end_time - start_time))
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/config-perf-test.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/config-perf-test.json"
 skills_count=$(jq '.start.config.skills | keys | length' "$session_file" 2>/dev/null || echo 0)
 commands_count=$(jq '.start.config.commands | keys | length' "$session_file" 2>/dev/null || echo 0)
 
@@ -135,7 +135,7 @@ test_start "perf: session_end validation in < 200ms"
 setup_test_env
 
 # Create a session file to validate
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/validation-test.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/validation-test.json"
 cat > "$session_file" << 'EOF'
 {
   "session_id": "validation-test",
@@ -190,7 +190,7 @@ run_hook "session_end.sh" "$input"
 end_time=$(get_time_ms)
 elapsed_ms=$((end_time - start_time))
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/lifecycle-test.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/lifecycle-test.json"
 status=$(jq -r '.status' "$session_file" 2>/dev/null || echo "unknown")
 
 if [ "$elapsed_ms" -lt 2000 ] && [ "$status" = "complete" ]; then
@@ -209,7 +209,7 @@ setup_test_env
 
 # Create some orphaned sessions first
 for i in {1..5}; do
-  orphan_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/orphan-$i.json"
+  orphan_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/orphan-$i.json"
   cat > "$orphan_file" << EOF
 {
   "session_id": "orphan-$i",
@@ -229,7 +229,7 @@ end_time=$(get_time_ms)
 elapsed_ms=$((end_time - start_time))
 
 # Session file should exist
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/after-orphans-test.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/after-orphans-test.json"
 if [ -f "$session_file" ] && [ "$elapsed_ms" -lt 1000 ]; then
   test_pass "Session created in ${elapsed_ms}ms with 5 orphans present"
 else
@@ -237,7 +237,7 @@ else
 fi
 
 # Verify orphans were marked (orphan detection ran)
-orphan_status=$(jq -r '.status' "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/orphan-1.json" 2>/dev/null || echo "unknown")
+orphan_status=$(jq -r '.status' "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/orphan-1.json" 2>/dev/null || echo "unknown")
 if [ "$orphan_status" = "incomplete" ]; then
   test_pass "Orphan was marked as incomplete"
 else

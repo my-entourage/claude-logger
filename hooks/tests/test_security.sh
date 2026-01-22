@@ -47,7 +47,7 @@ setup_test_env
 input='{"session_id":"test session with spaces","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test session with spaces.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test session with spaces.json"
 if [ -f "$session_file" ]; then
   test_pass "Spaces in session_id handled"
 elif [ $? -eq 0 ]; then
@@ -127,7 +127,7 @@ setup_test_env
 input='{"session_id":null,"cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
+if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/" 2>/dev/null)" ]; then
   test_pass "Null session_id rejected"
 else
   test_fail "Null session_id should be rejected"
@@ -145,9 +145,9 @@ input='{"session_id":12345,"cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
 # jq -r will coerce to string "12345" or return empty
-if [ -f "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/12345.json" ]; then
+if [ -f "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/12345.json" ]; then
   test_pass "Integer coerced to string"
-elif [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
+elif [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/" 2>/dev/null)" ]; then
   test_pass "Integer session_id rejected"
 else
   test_pass "Integer session_id handled"
@@ -181,7 +181,7 @@ input='{"session_id":["a","b"],"cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
 # Should reject or handle gracefully
-if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
+if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/" 2>/dev/null)" ]; then
   test_pass "Array session_id rejected"
 else
   test_pass "Array session_id handled"
@@ -199,7 +199,7 @@ input='{"session_id":{"nested":"object"},"cwd":"'"$TEST_TMPDIR"'","source":"star
 run_hook "session_start.sh" "$input"
 
 # Should reject or handle gracefully
-if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
+if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/" 2>/dev/null)" ]; then
   test_pass "Object session_id rejected"
 else
   test_pass "Object session_id handled"
@@ -216,7 +216,7 @@ setup_test_env
 input='{"session_id":"","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)" ]; then
+if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/" 2>/dev/null)" ]; then
   test_pass "Empty string session_id rejected"
 else
   test_fail "Empty string session_id should be rejected"
@@ -235,7 +235,7 @@ run_hook "session_start.sh" "$input"
 
 # Should handle unicode gracefully
 if [ $? -eq 0 ]; then
-  files=$(ls -1 "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null | wc -l)
+  files=$(ls -1 "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/" 2>/dev/null | wc -l)
   if [ "$files" -ge 1 ]; then
     test_pass "Unicode session_id created file"
   else
@@ -373,7 +373,7 @@ input='{"session_id":"$HOME","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
 # Should create file literally named "$HOME.json" not expand variable
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/\$HOME.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/\$HOME.json"
 if [ -f "$session_file" ] || [ $? -eq 0 ]; then
   test_pass "Shell variable not expanded"
 else
@@ -399,7 +399,7 @@ input="${bom}"'{"session_id":"test-bom","cwd":"'"$TEST_TMPDIR"'","source":"start
 echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh"
 
 # jq may or may not handle BOM
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-bom.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-bom.json"
 if [ -f "$session_file" ] || [ $? -eq 0 ]; then
   test_pass "BOM in JSON handled"
 else
@@ -418,7 +418,7 @@ setup_test_env
 input=$'{"session_id":"test-crlf",\r\n"cwd":"'"$TEST_TMPDIR"$'",\r\n"source":"startup"}'
 echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-crlf.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-crlf.json"
 if [ -f "$session_file" ] || [ $? -eq 0 ]; then
   test_pass "CRLF line endings handled"
 fi
@@ -435,7 +435,7 @@ setup_test_env
 input='{"session_id":"test-bignum","cwd":"'"$TEST_TMPDIR"'","source":"startup","big":99999999999999999999999999999999999999}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-bignum.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-bignum.json"
 if [ -f "$session_file" ]; then
   test_pass "Huge number in JSON handled"
 fi
@@ -452,11 +452,11 @@ setup_test_env
 input='{"session_id":"first","session_id":"test-dupe-keys","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-dupe-keys.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-dupe-keys.json"
 if [ -f "$session_file" ]; then
   # jq takes last value for duplicate keys
   test_pass "Duplicate keys handled (jq uses last)"
-elif [ -f "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/first.json" ]; then
+elif [ -f "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/first.json" ]; then
   test_pass "Duplicate keys handled (jq uses first)"
 else
   test_pass "Duplicate keys handled gracefully"
@@ -473,7 +473,7 @@ setup_test_env
 input='{"session_id":"test-sci","cwd":"'"$TEST_TMPDIR"'","source":"startup","num":1.23e45}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-sci.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-sci.json"
 if [ -f "$session_file" ]; then
   test_pass "Scientific notation handled"
 fi
@@ -490,12 +490,12 @@ input='{"session_id":"test-\u0041\u0042\u0043","cwd":"'"$TEST_TMPDIR"'","source"
 run_hook "session_start.sh" "$input"
 
 # jq should decode \u0041\u0042\u0043 to "ABC"
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-ABC.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-ABC.json"
 if [ -f "$session_file" ]; then
   test_pass "Escaped unicode decoded correctly"
 else
   # Check if literal was used
-  files=$(ls -1 "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/" 2>/dev/null)
+  files=$(ls -1 "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/" 2>/dev/null)
   test_pass "Escaped unicode handled ($files)"
 fi
 

@@ -36,7 +36,7 @@ input='{"session_id":"test-no-home","cwd":"'"$TEST_TMPDIR"'","source":"startup"}
 (unset HOME; echo "$input" | bash "$TEST_TMPDIR/.claude/hooks/session_start.sh") 2>/dev/null
 exit_code=$?
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-no-home.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-no-home.json"
 if [ -f "$session_file" ] || [ $exit_code -eq 0 ]; then
   test_pass "Unset HOME handled gracefully"
 fi
@@ -55,7 +55,7 @@ input='{"session_id":"test-bad-home","cwd":"'"$TEST_TMPDIR"'","source":"startup"
 HOME="/nonexistent/path/that/does/not/exist" bash -c "echo '$input' | bash '$TEST_TMPDIR/.claude/hooks/session_start.sh'" 2>/dev/null
 exit_code=$?
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-bad-home.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-bad-home.json"
 if [ -f "$session_file" ] || [ $exit_code -eq 0 ]; then
   test_pass "Non-existent HOME handled gracefully"
 fi
@@ -63,15 +63,15 @@ fi
 cleanup_test_env
 
 #######################################
-# Test: GITHUB_NICKNAME with shell metacharacters
+# Test: CLAUDE_LOGGER_USER with shell metacharacters
 #######################################
-test_start "env: GITHUB_NICKNAME with shell metacharacters"
+test_start "env: CLAUDE_LOGGER_USER with shell metacharacters"
 setup_test_env
 
 input='{"session_id":"test-meta-nick","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 
 # This should be rejected by validation (contains invalid chars)
-GITHUB_NICKNAME='test;whoami' bash -c "echo '$input' | bash '$TEST_TMPDIR/.claude/hooks/session_start.sh'" 2>/dev/null
+CLAUDE_LOGGER_USER='test;whoami' bash -c "echo '$input' | bash '$TEST_TMPDIR/.claude/hooks/session_start.sh'" 2>/dev/null
 
 # No file should be created (invalid nickname)
 if [ -z "$(ls -A "$TEST_TMPDIR/.claude/sessions/" 2>/dev/null)" ]; then
@@ -83,16 +83,16 @@ fi
 cleanup_test_env
 
 #######################################
-# Test: Very long GITHUB_NICKNAME
+# Test: Very long CLAUDE_LOGGER_USER
 #######################################
-test_start "env: GITHUB_NICKNAME at filesystem limit"
+test_start "env: CLAUDE_LOGGER_USER at filesystem limit"
 setup_test_env
 
 # 255 chars is typical max filename length
 long_nick=$(head -c 255 /dev/zero | tr '\0' 'a')
 input='{"session_id":"test-long-nick","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 
-GITHUB_NICKNAME="$long_nick" bash -c "echo '$input' | bash '$TEST_TMPDIR/.claude/hooks/session_start.sh'" 2>/dev/null
+CLAUDE_LOGGER_USER="$long_nick" bash -c "echo '$input' | bash '$TEST_TMPDIR/.claude/hooks/session_start.sh'" 2>/dev/null
 exit_code=$?
 
 # Should either work or fail gracefully
@@ -123,7 +123,7 @@ exit_code=$?
 if [ $exit_code -eq 1 ]; then
   test_skip "git still in restricted PATH"
 else
-  session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-no-git.json"
+  session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-no-git.json"
   if [ -f "$session_file" ]; then
     is_repo=$(jq -r '.start.git.is_repo' "$session_file" 2>/dev/null)
     if [ "$is_repo" = "false" ]; then
@@ -175,7 +175,7 @@ input='{"session_id":"test-bad-tmpdir","cwd":"'"$TEST_TMPDIR"'","source":"startu
 TMPDIR="/nonexistent" bash -c "echo '$input' | bash '$TEST_TMPDIR/.claude/hooks/session_start.sh'" 2>/dev/null
 exit_code=$?
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-bad-tmpdir.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-bad-tmpdir.json"
 if [ -f "$session_file" ] || [ $exit_code -eq 0 ]; then
   test_pass "Bad TMPDIR handled gracefully"
 fi
@@ -192,7 +192,7 @@ input='{"session_id":"test-c-locale","cwd":"'"$TEST_TMPDIR"'","source":"startup"
 
 LC_ALL=C LANG=C bash -c "echo '$input' | bash '$TEST_TMPDIR/.claude/hooks/session_start.sh'" 2>/dev/null
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-c-locale.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-c-locale.json"
 if [ -f "$session_file" ]; then
   test_pass "C locale handled"
 fi

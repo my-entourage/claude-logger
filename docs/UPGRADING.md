@@ -1,26 +1,37 @@
 # Upgrading Claude Logger
 
-This guide covers upgrading from a previous version of Claude Logger to the current version with user-based session organization.
+This guide covers upgrading from a previous version of Claude Logger to the current version with user-based session organization and optional global installation.
 
 ## What Changed
 
-The main change is how sessions are organized:
+### Session Organization (Per-User)
+
+Sessions are now organized by user:
 
 | Version | Session Path |
 |---------|--------------|
 | Old | `.claude/sessions/{session_id}.json` |
 | New | `.claude/sessions/{nickname}/{session_id}.json` |
 
-This allows teams to track sessions per-user and requires the `GITHUB_NICKNAME` environment variable.
+This allows teams to track sessions per-user and requires the `CLAUDE_LOGGER_USER` environment variable.
+
+### Global Installation Mode (New)
+
+You can now install claude-logger once for all projects using `--global`:
+
+| Mode | Command | Sessions Stored At |
+|------|---------|-------------------|
+| Project (existing) | `./install.sh /path/to/project` | `PROJECT/.claude/sessions/{nickname}/` |
+| Global (new) | `./install.sh --global` | `~/.claude-logger/sessions/{nickname}/` |
 
 ## Upgrade Steps
 
 ### 1. Update Your Shell Profile
 
-Add `GITHUB_NICKNAME` to your shell profile (`.bashrc`, `.zshrc`, etc.):
+Add `CLAUDE_LOGGER_USER` to your shell profile (`.bashrc`, `.zshrc`, etc.):
 
 ```bash
-export GITHUB_NICKNAME="your-nickname"
+export CLAUDE_LOGGER_USER="your-nickname"
 ```
 
 Then reload:
@@ -52,8 +63,8 @@ ls -la /path/to/your-project/.claude/hooks/
 # Verify settings.json has hooks configured
 jq '.hooks' /path/to/your-project/.claude/settings.json
 
-# Check GITHUB_NICKNAME is set
-echo $GITHUB_NICKNAME
+# Check CLAUDE_LOGGER_USER is set
+echo $CLAUDE_LOGGER_USER
 ```
 
 ## Migrating Old Sessions
@@ -83,6 +94,20 @@ done
 
 ## Upgrading Multiple Projects
 
+### Option A: Switch to Global Mode (Recommended)
+
+Instead of maintaining hooks in each project, use global mode:
+
+```bash
+./install.sh --global
+```
+
+This installs hooks once at `~/.claude/hooks/` and stores all sessions at `~/.claude-logger/sessions/`. Each session records which project it was run in via the `cwd` field.
+
+**Note:** Global mode takes precedence. Once installed globally, even project-installed hooks will route sessions to the global location.
+
+### Option B: Update Each Project
+
 Run the installer for each project:
 
 ```bash
@@ -101,9 +126,9 @@ This is expected. The installer detected your existing hooks and avoided creatin
 
 ### Sessions Not Being Created After Upgrade
 
-1. Verify `GITHUB_NICKNAME` is set:
+1. Verify `CLAUDE_LOGGER_USER` is set:
    ```bash
-   echo $GITHUB_NICKNAME
+   echo $CLAUDE_LOGGER_USER
    ```
 
 2. Restart your shell or run:
@@ -121,14 +146,14 @@ Old sessions are not deleted or moved. Check:
 ls .claude/sessions/*.json
 
 # New location (per-user)
-ls .claude/sessions/$GITHUB_NICKNAME/
+ls .claude/sessions/$CLAUDE_LOGGER_USER/
 ```
 
 ## Rollback
 
 To revert to the old behavior (not recommended):
 
-1. Remove the `GITHUB_NICKNAME` check from hooks:
+1. Remove the `CLAUDE_LOGGER_USER` check from hooks:
    ```bash
    # Edit hooks to remove nickname validation
    vim .claude/hooks/session_start.sh
@@ -137,4 +162,4 @@ To revert to the old behavior (not recommended):
 
 2. Change session paths back to flat structure
 
-Or simply unset `GITHUB_NICKNAME` - hooks will exit silently without tracking.
+Or simply unset `CLAUDE_LOGGER_USER` - hooks will exit silently without tracking.

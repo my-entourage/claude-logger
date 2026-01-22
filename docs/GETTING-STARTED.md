@@ -34,7 +34,7 @@ This data enables future optimization - comparing session outcomes across differ
 
 ### Required Environment Variable
 
-- **GITHUB_NICKNAME** - Your identifier for session tracking (typically your GitHub username)
+- **CLAUDE_LOGGER_USER** - Your identifier for session tracking (typically your GitHub username)
 
   This must be set in your shell profile for sessions to be tracked.
 
@@ -47,13 +47,30 @@ git clone https://github.com/my-entourage/claude-logger.git
 cd claude-logger
 ```
 
-### Step 2: Install to Your Project
+### Step 2: Choose Installation Mode
+
+Claude Logger supports two installation modes:
+
+| Mode | Command | Best For |
+|------|---------|----------|
+| **Global** | `./install.sh --global` | Personal use, track all projects in one place |
+| **Project** | `./install.sh /path/to/project` | Team projects, sessions stored with project |
+
+#### Option A: Global Installation (Recommended for Personal Use)
+
+```bash
+./install.sh --global
+```
+
+This installs hooks to `~/.claude/hooks/` and stores all sessions centrally at `~/.claude-logger/sessions/{nickname}/`. Sessions from any project are collected in one location.
+
+#### Option B: Project Installation
 
 ```bash
 ./install.sh /path/to/your-project
 ```
 
-The installer will prompt you for your nickname (typically your GitHub username). This is required for session tracking.
+This installs hooks to the project's `.claude/hooks/` directory. Sessions are stored at `PROJECT/.claude/sessions/{nickname}/`.
 
 Or install to current directory:
 
@@ -62,17 +79,19 @@ cd /path/to/your-project
 /path/to/claude-logger/install.sh
 ```
 
+The installer will prompt you for your nickname (typically your GitHub username). This is required for session tracking.
+
 ### Step 3: Configure Your Environment
 
-Add the `GITHUB_NICKNAME` environment variable to your shell profile (`.bashrc`, `.zshrc`, etc.):
+Add the `CLAUDE_LOGGER_USER` environment variable to your shell profile (`.bashrc`, `.zshrc`, etc.):
 
 ```bash
-export GITHUB_NICKNAME="your-nickname"
+export CLAUDE_LOGGER_USER="your-nickname"
 ```
 
 Then reload your shell or run `source ~/.zshrc` (or your profile file).
 
-**Important:** Sessions are only tracked when `GITHUB_NICKNAME` is set. If it's not set, hooks exit silently without tracking.
+**Important:** Sessions are only tracked when `CLAUDE_LOGGER_USER` is set. If it's not set, hooks exit silently without tracking.
 
 ### Step 4: Verify Installation
 
@@ -102,30 +121,34 @@ Once installed, Claude Logger works automatically. There's nothing you need to d
 
 ### Where Sessions Are Stored
 
-Sessions are stored in your project at:
+Session storage location depends on your installation mode:
 
-```
-.claude/sessions/{nickname}/{session-id}.json
-```
+| Mode | Session Path |
+|------|--------------|
+| Global | `~/.claude-logger/sessions/{nickname}/{session-id}.json` |
+| Project | `PROJECT/.claude/sessions/{nickname}/{session-id}.json` |
 
-Each team member's sessions are organized in their own subdirectory based on their `GITHUB_NICKNAME`.
+Each team member's sessions are organized in their own subdirectory based on their `CLAUDE_LOGGER_USER`.
 
 ### Viewing Your Sessions
 
 After your first session, explore the data:
 
 ```bash
+# For global installation:
+SESSION_DIR=~/.claude-logger/sessions/$CLAUDE_LOGGER_USER
+
+# For project installation:
+SESSION_DIR=.claude/sessions/$CLAUDE_LOGGER_USER
+
 # List your sessions
-ls .claude/sessions/$GITHUB_NICKNAME/
+ls $SESSION_DIR/
 
 # View a session (pretty-printed)
-cat .claude/sessions/$GITHUB_NICKNAME/*.json | jq .
+cat $SESSION_DIR/*.json | jq .
 
 # View most recent session
-ls -t .claude/sessions/$GITHUB_NICKNAME/*.json | head -1 | xargs cat | jq .
-
-# List all team members' sessions
-ls .claude/sessions/
+ls -t $SESSION_DIR/*.json | head -1 | xargs cat | jq .
 ```
 
 ## Understanding Session Data
@@ -191,13 +214,27 @@ Each session file contains:
 
 ## Installing to Multiple Projects
 
+### Option A: Global Installation (Recommended)
+
+Use `--global` once to track sessions from all projects:
+
+```bash
+./install.sh --global
+```
+
+All sessions are stored centrally at `~/.claude-logger/sessions/`. Each session records which project (`cwd`) it was run in.
+
+### Option B: Per-Project Installation
+
+Install separately to each project:
+
 ```bash
 ./install.sh ~/project-one
 ./install.sh ~/project-two
 ./install.sh ~/project-three
 ```
 
-Each project maintains its own session history independently.
+Each project maintains its own session history independently in `PROJECT/.claude/sessions/`.
 
 ## Querying Session Data
 
@@ -205,49 +242,49 @@ Each project maintains its own session history independently.
 
 ```bash
 # Sessions where you made commits
-jq 'select(.end.git.commits_made | length > 0)' .claude/sessions/$GITHUB_NICKNAME/*.json
+jq 'select(.end.git.commits_made | length > 0)' .claude/sessions/$CLAUDE_LOGGER_USER/*.json
 ```
 
 ### Find Long Sessions
 
 ```bash
 # Sessions longer than 30 minutes (1800 seconds)
-jq 'select(.end.duration_seconds > 1800)' .claude/sessions/$GITHUB_NICKNAME/*.json
+jq 'select(.end.duration_seconds > 1800)' .claude/sessions/$CLAUDE_LOGGER_USER/*.json
 ```
 
 ### Find Crashed Sessions
 
 ```bash
 # Sessions that didn't end normally
-jq 'select(.status == "incomplete")' .claude/sessions/$GITHUB_NICKNAME/*.json
+jq 'select(.status == "incomplete")' .claude/sessions/$CLAUDE_LOGGER_USER/*.json
 ```
 
 ### Session Statistics
 
 ```bash
 # Count your sessions
-ls .claude/sessions/$GITHUB_NICKNAME/*.json | wc -l
+ls .claude/sessions/$CLAUDE_LOGGER_USER/*.json | wc -l
 
 # Average session duration
-jq -s '[.[].end.duration_seconds // 0] | add / length' .claude/sessions/$GITHUB_NICKNAME/*.json
+jq -s '[.[].end.duration_seconds // 0] | add / length' .claude/sessions/$CLAUDE_LOGGER_USER/*.json
 
 # Total commits across all your sessions
-jq -s '[.[].end.git.commits_made // [] | length] | add' .claude/sessions/$GITHUB_NICKNAME/*.json
+jq -s '[.[].end.git.commits_made // [] | length] | add' .claude/sessions/$CLAUDE_LOGGER_USER/*.json
 ```
 
 ## Troubleshooting
 
 ### Sessions Not Being Created
 
-1. **Check GITHUB_NICKNAME is set:**
+1. **Check CLAUDE_LOGGER_USER is set:**
    ```bash
-   echo $GITHUB_NICKNAME
+   echo $CLAUDE_LOGGER_USER
    # Should output your nickname
    ```
 
    If empty, add to your shell profile:
    ```bash
-   export GITHUB_NICKNAME="your-nickname"
+   export CLAUDE_LOGGER_USER="your-nickname"
    ```
 
 2. **Check jq is installed:**
@@ -275,7 +312,7 @@ jq -s '[.[].end.git.commits_made // [] | length] | add' .claude/sessions/$GITHUB
 5. **Test hooks manually:**
    ```bash
    echo '{"session_id":"test-123","cwd":"'$(pwd)'"}' | .claude/hooks/session_start.sh
-   ls .claude/sessions/$GITHUB_NICKNAME/
+   ls .claude/sessions/$CLAUDE_LOGGER_USER/
    # Should show test-123.json
    ```
 

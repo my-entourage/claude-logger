@@ -14,7 +14,7 @@ ln -sf /dev/null "$TEST_TMPDIR/CLAUDE.md"
 input='{"session_id":"test-devnull-claude","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-devnull-claude.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-devnull-claude.json"
 if [ -f "$session_file" ]; then
   claude_md=$(jq -r '.start.config.claude_md' "$session_file" 2>/dev/null)
   # Should either be null, empty, or captured empty content
@@ -64,7 +64,7 @@ ln -sf "$TEST_TMPDIR/real-skills/linked-skill" "$TEST_TMPDIR/.claude/skills/syml
 input='{"session_id":"test-symlink-skill","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-symlink-skill.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-symlink-skill.json"
 if [ -f "$session_file" ]; then
   has_skill=$(jq -e '.start.config.skills["symlinked-skill"]' "$session_file" 2>/dev/null)
   if [ $? -eq 0 ]; then
@@ -88,7 +88,7 @@ ln -sf "/nonexistent/path/SKILL.md" "$TEST_TMPDIR/.claude/skills/broken-skill/SK
 input='{"session_id":"test-broken-symlink","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-broken-symlink.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-broken-symlink.json"
 if [ -f "$session_file" ]; then
   test_pass "Broken symlink in skills handled"
 fi
@@ -106,7 +106,7 @@ mkdir -p "$TEST_TMPDIR/.claude/skills/weird-skill/SKILL.md"  # Directory, not fi
 input='{"session_id":"test-skill-dir","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-skill-dir.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-skill-dir.json"
 if [ -f "$session_file" ]; then
   test_pass "SKILL.md as directory handled"
 fi
@@ -123,13 +123,13 @@ setup_test_env
 rm -rf "$TEST_TMPDIR/.claude/sessions"
 mkdir -p "$TEST_TMPDIR/real-sessions"
 ln -sf "$TEST_TMPDIR/real-sessions" "$TEST_TMPDIR/.claude/sessions"
-mkdir -p "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME"
+mkdir -p "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER"
 
 input='{"session_id":"test-sessions-symlink","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
 # Check if file was created in real location
-if [ -f "$TEST_TMPDIR/real-sessions/$GITHUB_NICKNAME/test-sessions-symlink.json" ]; then
+if [ -f "$TEST_TMPDIR/real-sessions/$CLAUDE_LOGGER_USER/test-sessions-symlink.json" ]; then
   test_pass "Session created through symlinked directory"
 else
   test_pass "Symlinked sessions directory handled"
@@ -145,7 +145,7 @@ setup_test_env
 
 # Create a directory with special characters
 special_dir="$TEST_TMPDIR/path'with\"special\$chars"
-mkdir -p "$special_dir/.claude/sessions/$GITHUB_NICKNAME"
+mkdir -p "$special_dir/.claude/sessions/$CLAUDE_LOGGER_USER"
 mkdir -p "$special_dir/.claude/hooks"
 cp "$TEST_TMPDIR/.claude/hooks/"*.sh "$special_dir/.claude/hooks/"
 
@@ -178,7 +178,7 @@ input='{"session_id":"test-deep-nesting","cwd":"'"$deep_dir"'","source":"startup
 run_hook "session_start.sh" "$input"
 
 # Session should be saved at git root, not deep path
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-deep-nesting.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-deep-nesting.json"
 if [ -f "$session_file" ]; then
   test_pass "Deep nesting resolved to git root"
 else

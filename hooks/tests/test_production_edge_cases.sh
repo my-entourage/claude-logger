@@ -11,12 +11,12 @@ test_start "production: first session in fresh project"
 setup_test_env
 
 # Ensure sessions directory is completely empty (no prior sessions)
-rm -rf "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME"/*
+rm -rf "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER"/*
 
 input='{"session_id":"very-first-session","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/very-first-session.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/very-first-session.json"
 if [ -f "$session_file" ]; then
   status=$(jq -r '.status' "$session_file")
   if [ "$status" = "in_progress" ]; then
@@ -48,7 +48,7 @@ transcript_path="$TEST_TMPDIR/fake-transcript.jsonl"
 echo '{"type":"user","message":"hello"}' > "$transcript_path"
 
 # Create session with transcript path
-cat > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/deleted-transcript.json" << EOF
+cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/deleted-transcript.json" << EOF
 {
   "schema_version": 1,
   "session_id": "deleted-transcript",
@@ -69,11 +69,11 @@ input='{"session_id":"deleted-transcript","cwd":"'"$TEST_TMPDIR"'","reason":"cle
 run_hook "session_end.sh" "$input"
 
 # Session should complete successfully even without transcript
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/deleted-transcript.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/deleted-transcript.json"
 status=$(jq -r '.status' "$session_file" 2>/dev/null)
 if [ "$status" = "complete" ]; then
   # Transcript should NOT exist (was deleted)
-  if [ ! -f "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/deleted-transcript.jsonl" ]; then
+  if [ ! -f "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/deleted-transcript.jsonl" ]; then
     test_pass "Session completed gracefully despite missing transcript"
   else
     test_fail "Transcript should not exist"
@@ -98,7 +98,7 @@ git -C "$TEST_TMPDIR" add file.txt
 git -C "$TEST_TMPDIR" commit -q -m "Initial"
 
 # Create session with a transcript path that points to wrong location
-cat > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/wrong-path.json" << EOF
+cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/wrong-path.json" << EOF
 {
   "schema_version": 1,
   "session_id": "wrong-path",
@@ -116,7 +116,7 @@ input='{"session_id":"wrong-path","cwd":"'"$TEST_TMPDIR"'","reason":"clear"}'
 run_hook "session_end.sh" "$input"
 
 # Session should complete successfully
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/wrong-path.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/wrong-path.json"
 status=$(jq -r '.status' "$session_file" 2>/dev/null)
 if [ "$status" = "complete" ]; then
   test_pass "Session completed despite invalid transcript path"
@@ -159,7 +159,7 @@ done
 end_input='{"session_id":"many-commits","cwd":"'"$TEST_TMPDIR"'","reason":"clear"}'
 run_hook "session_end.sh" "$end_input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/many-commits.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/many-commits.json"
 if [ -f "$session_file" ]; then
   commit_count=$(jq '.end.git.commits_made | length' "$session_file" 2>/dev/null)
   status=$(jq -r '.status' "$session_file")
@@ -189,7 +189,7 @@ setup_test_env
 
 # Create 5 "orphan" sessions in quick succession
 for i in $(seq 1 5); do
-  cat > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/rapid-orphan-$i.json" << EOF
+  cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/rapid-orphan-$i.json" << EOF
 {
   "schema_version": 1,
   "session_id": "rapid-orphan-$i",
@@ -197,7 +197,7 @@ for i in $(seq 1 5); do
   "start": {"timestamp": "2025-01-01T12:0$i:00Z", "cwd": "$TEST_TMPDIR"}
 }
 EOF
-  touch "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/rapid-orphan-$i.json"
+  touch "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/rapid-orphan-$i.json"
 done
 
 # Start a new session that should mark all 5 as orphaned
@@ -207,8 +207,8 @@ run_hook "session_start.sh" "$input"
 # Count orphaned sessions
 orphan_count=0
 for i in $(seq 1 5); do
-  status=$(jq -r '.status' "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/rapid-orphan-$i.json" 2>/dev/null)
-  reason=$(jq -r '.end.reason' "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/rapid-orphan-$i.json" 2>/dev/null)
+  status=$(jq -r '.status' "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/rapid-orphan-$i.json" 2>/dev/null)
+  reason=$(jq -r '.end.reason' "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/rapid-orphan-$i.json" 2>/dev/null)
   if [ "$status" = "incomplete" ] && [ "$reason" = "orphaned" ]; then
     ((orphan_count++))
   fi
@@ -240,7 +240,7 @@ git -C "$TEST_TMPDIR" commit -q -m "Initial"
 # Using a fixed past timestamp to simulate zombie
 start_timestamp="2025-01-01T00:00:00Z"  # 30 hours ago (simulated)
 
-cat > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/zombie-session.json" << EOF
+cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/zombie-session.json" << EOF
 {
   "schema_version": 1,
   "session_id": "zombie-session",
@@ -269,7 +269,7 @@ done
 input='{"session_id":"zombie-session","cwd":"'"$TEST_TMPDIR"'","reason":"other"}'
 run_hook "session_end.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/zombie-session.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/zombie-session.json"
 if [ -f "$session_file" ]; then
   status=$(jq -r '.status' "$session_file")
   duration=$(jq -r '.end.duration_seconds' "$session_file")
@@ -318,7 +318,7 @@ for i in $(seq 1 5); do
 done
 
 # Create session that claims to have started at old_sha
-cat > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/stale-sha-session.json" << EOF
+cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/stale-sha-session.json" << EOF
 {
   "schema_version": 1,
   "session_id": "stale-sha-session",
@@ -340,7 +340,7 @@ EOF
 input='{"session_id":"stale-sha-session","cwd":"'"$TEST_TMPDIR"'","reason":"clear"}'
 run_hook "session_end.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/stale-sha-session.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/stale-sha-session.json"
 if [ -f "$session_file" ]; then
   commits=$(jq '.end.git.commits_made | length' "$session_file")
   status=$(jq -r '.status' "$session_file")
@@ -372,7 +372,7 @@ git -C "$TEST_TMPDIR" add file.txt
 git -C "$TEST_TMPDIR" commit -q -m "Initial"
 
 # Create first session
-cat > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/ending-session.json" << EOF
+cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/ending-session.json" << EOF
 {
   "schema_version": 1,
   "session_id": "ending-session",
@@ -398,8 +398,8 @@ wait $pid1
 wait $pid2
 
 # Both operations should succeed
-ending_status=$(jq -r '.status' "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/ending-session.json" 2>/dev/null)
-starting_exists=$([ -f "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/starting-session.json" ] && echo "yes" || echo "no")
+ending_status=$(jq -r '.status' "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/ending-session.json" 2>/dev/null)
+starting_exists=$([ -f "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/starting-session.json" ] && echo "yes" || echo "no")
 
 if [ "$ending_status" = "complete" ] && [ "$starting_exists" = "yes" ]; then
   test_pass "Both end and start operations completed"
@@ -424,7 +424,7 @@ echo "initial" > "$TEST_TMPDIR/file.txt"
 git -C "$TEST_TMPDIR" add file.txt
 git -C "$TEST_TMPDIR" commit -q -m "Initial"
 
-cat > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/other-reason.json" << EOF
+cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/other-reason.json" << EOF
 {
   "schema_version": 1,
   "session_id": "other-reason",
@@ -440,7 +440,7 @@ EOF
 input='{"session_id":"other-reason","cwd":"'"$TEST_TMPDIR"'","reason":"other"}'
 run_hook "session_end.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/other-reason.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/other-reason.json"
 reason=$(jq -r '.end.reason' "$session_file" 2>/dev/null)
 status=$(jq -r '.status' "$session_file" 2>/dev/null)
 
@@ -454,7 +454,7 @@ cleanup_test_env
 
 #######################################
 # Test: Multiple users with sessions in same project
-# Production shows sessions organized by GITHUB_NICKNAME
+# Production shows sessions organized by CLAUDE_LOGGER_USER
 #######################################
 test_start "production: multi-user session isolation"
 setup_test_env
@@ -504,7 +504,7 @@ git -C "$TEST_TMPDIR" add file.txt
 git -C "$TEST_TMPDIR" commit -q -m "Initial"
 
 # Create session with extra fields (simulating legacy/future schema)
-cat > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/extra-fields.json" << EOF
+cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/extra-fields.json" << EOF
 {
   "schema_version": 1,
   "session_id": "extra-fields",
@@ -522,7 +522,7 @@ EOF
 input='{"session_id":"extra-fields","cwd":"'"$TEST_TMPDIR"'","reason":"clear"}'
 run_hook "session_end.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/extra-fields.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/extra-fields.json"
 legacy_field=$(jq -r '.legacy_field' "$session_file" 2>/dev/null)
 custom_data=$(jq -r '.custom_data.key' "$session_file" 2>/dev/null)
 
@@ -551,7 +551,7 @@ git -C "$TEST_TMPDIR" commit -q -m "Initial"
 transcript_path="$TEST_TMPDIR/empty-transcript.jsonl"
 touch "$transcript_path"  # 0 bytes
 
-cat > "$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/empty-transcript-session.json" << EOF
+cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/empty-transcript-session.json" << EOF
 {
   "schema_version": 1,
   "session_id": "empty-transcript-session",
@@ -568,11 +568,11 @@ EOF
 input='{"session_id":"empty-transcript-session","cwd":"'"$TEST_TMPDIR"'","reason":"clear"}'
 run_hook "session_end.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/empty-transcript-session.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/empty-transcript-session.json"
 status=$(jq -r '.status' "$session_file" 2>/dev/null)
 
 # Empty transcript should not be copied (per existing behavior)
-copied_transcript="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/empty-transcript-session.jsonl"
+copied_transcript="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/empty-transcript-session.jsonl"
 if [ "$status" = "complete" ] && [ ! -f "$copied_transcript" ]; then
   test_pass "Empty transcript skipped correctly"
 elif [ "$status" = "complete" ]; then

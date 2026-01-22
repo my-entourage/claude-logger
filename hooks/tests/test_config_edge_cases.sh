@@ -18,7 +18,7 @@ fi
 input='{"session_id":"test-dot-skill","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-dot-skill.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-dot-skill.json"
 if [ -f "$session_file" ]; then
   test_pass "Dot skill name handled"
 fi
@@ -37,7 +37,7 @@ echo "# Verbose Skill" > "$TEST_TMPDIR/.claude/skills/-verbose/SKILL.md"
 input='{"session_id":"test-dash-skill","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-dash-skill.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-dash-skill.json"
 if [ -f "$session_file" ]; then
   has_skill=$(jq -e '.start.config.skills["-verbose"]' "$session_file" 2>/dev/null)
   if [ $? -eq 0 ]; then
@@ -61,7 +61,7 @@ echo "# Deploy Skill" > "$TEST_TMPDIR/.claude/skills/rocket-deploy/SKILL.md"
 input='{"session_id":"test-emoji-skill","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-emoji-skill.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-emoji-skill.json"
 if [ -f "$session_file" ]; then
   test_pass "Emoji-like skill name handled"
 fi
@@ -80,7 +80,7 @@ echo "# Hidden Command" > "$TEST_TMPDIR/.claude/commands/.md"
 input='{"session_id":"test-dotmd-cmd","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-dotmd-cmd.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-dotmd-cmd.json"
 if [ -f "$session_file" ]; then
   test_pass ".md command file handled"
 fi
@@ -100,7 +100,7 @@ dd if=/dev/urandom of="$TEST_TMPDIR/.claude/skills/binary-skill/SKILL.md" bs=102
 input='{"session_id":"test-binary-skill","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-binary-skill.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-binary-skill.json"
 if [ -f "$session_file" ]; then
   # jq should handle binary as escaped string or error
   if jq -e '.' "$session_file" &>/dev/null; then
@@ -125,7 +125,7 @@ head -c 51200 /dev/zero | tr '\0' 'x' > "$TEST_TMPDIR/.claude/skills/boundary-sk
 input='{"session_id":"test-boundary-skill","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-boundary-skill.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-boundary-skill.json"
 if [ -f "$session_file" ]; then
   has_skill=$(jq -e '.start.config.skills["boundary-skill"]' "$session_file" 2>/dev/null)
   if [ $? -eq 0 ]; then
@@ -150,7 +150,7 @@ head -c 51201 /dev/zero | tr '\0' 'x' > "$TEST_TMPDIR/.claude/skills/over-bounda
 input='{"session_id":"test-over-boundary","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-over-boundary.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-over-boundary.json"
 if [ -f "$session_file" ]; then
   has_skill=$(jq -e '.start.config.skills["over-boundary-skill"]' "$session_file" 2>/dev/null)
   if [ $? -ne 0 ]; then
@@ -175,7 +175,7 @@ printf '# Skill\n\xff\xfe Invalid UTF-8 \x80\x81' > "$TEST_TMPDIR/.claude/skills
 input='{"session_id":"test-bad-utf8","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-bad-utf8.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-bad-utf8.json"
 if [ -f "$session_file" ]; then
   if jq -e '.' "$session_file" &>/dev/null; then
     test_pass "Invalid UTF-8 handled (valid JSON)"
@@ -198,7 +198,7 @@ echo "# Spacy Skill" > "$TEST_TMPDIR/.claude/skills/skill with spaces/SKILL.md"
 input='{"session_id":"test-space-skill","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-space-skill.json"
+session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-space-skill.json"
 if [ -f "$session_file" ]; then
   has_skill=$(jq -e '.start.config.skills["skill with spaces"]' "$session_file" 2>/dev/null)
   if [ $? -eq 0 ]; then
@@ -231,7 +231,7 @@ if [ -d "$newline_dir" ]; then
   input='{"session_id":"test-newline-skill","cwd":"'"$TEST_TMPDIR"'","source":"startup"}'
   run_hook "session_start.sh" "$input"
 
-  session_file="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-newline-skill.json"
+  session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-newline-skill.json"
   if [ -f "$session_file" ]; then
     if jq -e '.' "$session_file" &>/dev/null; then
       test_pass "Newline in skill name handled"
