@@ -129,20 +129,20 @@ PROJECT_ROOT=$(resolve_project_root "$CWD")
 #######################################
 # Get user nickname (required for tracking)
 #######################################
-GITHUB_NICKNAME="${GITHUB_NICKNAME:-}"
-if [ -z "$GITHUB_NICKNAME" ]; then
-  echo "⚠️  GITHUB_NICKNAME not set - session tracking disabled!" >&2
-  echo "   Add to your shell profile: export GITHUB_NICKNAME=\"your-github-name\"" >&2
+CLAUDE_LOGGER_USER="${CLAUDE_LOGGER_USER:-}"
+if [ -z "$CLAUDE_LOGGER_USER" ]; then
+  echo "⚠️  CLAUDE_LOGGER_USER not set - session tracking disabled!" >&2
+  echo "   Add to your shell profile: export CLAUDE_LOGGER_USER=\"your-username\"" >&2
   echo "   Then restart your terminal or run: source ~/.zshrc" >&2
   exit 0
 fi
 
 # Normalize to lowercase
-GITHUB_NICKNAME=$(echo "$GITHUB_NICKNAME" | tr '[:upper:]' '[:lower:]')
+CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
 
 # Validate nickname
-if ! validate_nickname "$GITHUB_NICKNAME"; then
-  echo "Warning: GITHUB_NICKNAME '$GITHUB_NICKNAME' is invalid." >&2
+if ! validate_nickname "$CLAUDE_LOGGER_USER"; then
+  echo "Warning: CLAUDE_LOGGER_USER '$CLAUDE_LOGGER_USER' is invalid." >&2
   echo "Must be 1-39 characters, lowercase alphanumeric with dashes/underscores only." >&2
   echo "Session tracking skipped." >&2
   exit 0
@@ -152,9 +152,9 @@ fi
 # Determine storage location (global vs project)
 #######################################
 if [ -f "$HOME/.claude-logger/global-mode" ]; then
-  SESSIONS_DIR="$HOME/.claude-logger/sessions/$GITHUB_NICKNAME"
+  SESSIONS_DIR="$HOME/.claude-logger/sessions/$CLAUDE_LOGGER_USER"
 else
-  SESSIONS_DIR="$PROJECT_ROOT/.claude/sessions/$GITHUB_NICKNAME"
+  SESSIONS_DIR="$PROJECT_ROOT/.claude/sessions/$CLAUDE_LOGGER_USER"
 fi
 
 #######################################

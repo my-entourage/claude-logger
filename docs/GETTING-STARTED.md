@@ -34,7 +34,7 @@ This data enables future optimization - comparing session outcomes across differ
 
 ### Required Environment Variable
 
-- **GITHUB_NICKNAME** - Your identifier for session tracking (typically your GitHub username)
+- **CLAUDE_LOGGER_USER** - Your identifier for session tracking (typically your GitHub username)
 
   This must be set in your shell profile for sessions to be tracked.
 
@@ -64,15 +64,15 @@ cd /path/to/your-project
 
 ### Step 3: Configure Your Environment
 
-Add the `GITHUB_NICKNAME` environment variable to your shell profile (`.bashrc`, `.zshrc`, etc.):
+Add the `CLAUDE_LOGGER_USER` environment variable to your shell profile (`.bashrc`, `.zshrc`, etc.):
 
 ```bash
-export GITHUB_NICKNAME="your-nickname"
+export CLAUDE_LOGGER_USER="your-nickname"
 ```
 
 Then reload your shell or run `source ~/.zshrc` (or your profile file).
 
-**Important:** Sessions are only tracked when `GITHUB_NICKNAME` is set. If it's not set, hooks exit silently without tracking.
+**Important:** Sessions are only tracked when `CLAUDE_LOGGER_USER` is set. If it's not set, hooks exit silently without tracking.
 
 ### Step 4: Verify Installation
 
@@ -108,7 +108,7 @@ Sessions are stored in your project at:
 .claude/sessions/{nickname}/{session-id}.json
 ```
 
-Each team member's sessions are organized in their own subdirectory based on their `GITHUB_NICKNAME`.
+Each team member's sessions are organized in their own subdirectory based on their `CLAUDE_LOGGER_USER`.
 
 ### Viewing Your Sessions
 
@@ -116,13 +116,13 @@ After your first session, explore the data:
 
 ```bash
 # List your sessions
-ls .claude/sessions/$GITHUB_NICKNAME/
+ls .claude/sessions/$CLAUDE_LOGGER_USER/
 
 # View a session (pretty-printed)
-cat .claude/sessions/$GITHUB_NICKNAME/*.json | jq .
+cat .claude/sessions/$CLAUDE_LOGGER_USER/*.json | jq .
 
 # View most recent session
-ls -t .claude/sessions/$GITHUB_NICKNAME/*.json | head -1 | xargs cat | jq .
+ls -t .claude/sessions/$CLAUDE_LOGGER_USER/*.json | head -1 | xargs cat | jq .
 
 # List all team members' sessions
 ls .claude/sessions/
@@ -205,49 +205,49 @@ Each project maintains its own session history independently.
 
 ```bash
 # Sessions where you made commits
-jq 'select(.end.git.commits_made | length > 0)' .claude/sessions/$GITHUB_NICKNAME/*.json
+jq 'select(.end.git.commits_made | length > 0)' .claude/sessions/$CLAUDE_LOGGER_USER/*.json
 ```
 
 ### Find Long Sessions
 
 ```bash
 # Sessions longer than 30 minutes (1800 seconds)
-jq 'select(.end.duration_seconds > 1800)' .claude/sessions/$GITHUB_NICKNAME/*.json
+jq 'select(.end.duration_seconds > 1800)' .claude/sessions/$CLAUDE_LOGGER_USER/*.json
 ```
 
 ### Find Crashed Sessions
 
 ```bash
 # Sessions that didn't end normally
-jq 'select(.status == "incomplete")' .claude/sessions/$GITHUB_NICKNAME/*.json
+jq 'select(.status == "incomplete")' .claude/sessions/$CLAUDE_LOGGER_USER/*.json
 ```
 
 ### Session Statistics
 
 ```bash
 # Count your sessions
-ls .claude/sessions/$GITHUB_NICKNAME/*.json | wc -l
+ls .claude/sessions/$CLAUDE_LOGGER_USER/*.json | wc -l
 
 # Average session duration
-jq -s '[.[].end.duration_seconds // 0] | add / length' .claude/sessions/$GITHUB_NICKNAME/*.json
+jq -s '[.[].end.duration_seconds // 0] | add / length' .claude/sessions/$CLAUDE_LOGGER_USER/*.json
 
 # Total commits across all your sessions
-jq -s '[.[].end.git.commits_made // [] | length] | add' .claude/sessions/$GITHUB_NICKNAME/*.json
+jq -s '[.[].end.git.commits_made // [] | length] | add' .claude/sessions/$CLAUDE_LOGGER_USER/*.json
 ```
 
 ## Troubleshooting
 
 ### Sessions Not Being Created
 
-1. **Check GITHUB_NICKNAME is set:**
+1. **Check CLAUDE_LOGGER_USER is set:**
    ```bash
-   echo $GITHUB_NICKNAME
+   echo $CLAUDE_LOGGER_USER
    # Should output your nickname
    ```
 
    If empty, add to your shell profile:
    ```bash
-   export GITHUB_NICKNAME="your-nickname"
+   export CLAUDE_LOGGER_USER="your-nickname"
    ```
 
 2. **Check jq is installed:**
@@ -275,7 +275,7 @@ jq -s '[.[].end.git.commits_made // [] | length] | add' .claude/sessions/$GITHUB
 5. **Test hooks manually:**
    ```bash
    echo '{"session_id":"test-123","cwd":"'$(pwd)'"}' | .claude/hooks/session_start.sh
-   ls .claude/sessions/$GITHUB_NICKNAME/
+   ls .claude/sessions/$CLAUDE_LOGGER_USER/
    # Should show test-123.json
    ```
 

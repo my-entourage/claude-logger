@@ -245,7 +245,7 @@ HOOK_INPUT=$(cat <<EOF
 EOF
 )
 
-echo "$HOOK_INPUT" | HOME="$MOCK_HOME" GITHUB_NICKNAME="testuser" bash "$MOCK_HOME/.claude/hooks/session_start.sh" 2>/dev/null
+echo "$HOOK_INPUT" | HOME="$MOCK_HOME" CLAUDE_LOGGER_USER="testuser" bash "$MOCK_HOME/.claude/hooks/session_start.sh" 2>/dev/null
 
 # Check session was created in global location
 if [ -f "$MOCK_HOME/.claude-logger/sessions/testuser/$SESSION_ID.json" ]; then
@@ -281,7 +281,7 @@ HOOK_INPUT=$(cat <<EOF
 EOF
 )
 
-echo "$HOOK_INPUT" | HOME="$MOCK_HOME" GITHUB_NICKNAME="testuser" bash "$TEST_TMPDIR/project/.claude/hooks/session_start.sh" 2>/dev/null
+echo "$HOOK_INPUT" | HOME="$MOCK_HOME" CLAUDE_LOGGER_USER="testuser" bash "$TEST_TMPDIR/project/.claude/hooks/session_start.sh" 2>/dev/null
 
 # Check session was created in project location
 if [ -f "$TEST_TMPDIR/project/.claude/sessions/testuser/$SESSION_ID.json" ]; then
@@ -312,7 +312,7 @@ START_INPUT=$(cat <<EOF
 EOF
 )
 
-echo "$START_INPUT" | HOME="$MOCK_HOME" GITHUB_NICKNAME="testuser" bash "$MOCK_HOME/.claude/hooks/session_start.sh" 2>/dev/null
+echo "$START_INPUT" | HOME="$MOCK_HOME" CLAUDE_LOGGER_USER="testuser" bash "$MOCK_HOME/.claude/hooks/session_start.sh" 2>/dev/null
 
 # Run session_end hook
 END_INPUT=$(cat <<EOF
@@ -324,7 +324,7 @@ END_INPUT=$(cat <<EOF
 EOF
 )
 
-echo "$END_INPUT" | HOME="$MOCK_HOME" GITHUB_NICKNAME="testuser" bash "$MOCK_HOME/.claude/hooks/session_end.sh" 2>/dev/null
+echo "$END_INPUT" | HOME="$MOCK_HOME" CLAUDE_LOGGER_USER="testuser" bash "$MOCK_HOME/.claude/hooks/session_end.sh" 2>/dev/null
 
 # Check session was completed
 SESSION_FILE="$MOCK_HOME/.claude-logger/sessions/testuser/$SESSION_ID.json"
@@ -370,7 +370,7 @@ HOOK_INPUT=$(cat <<EOF
 EOF
 )
 
-echo "$HOOK_INPUT" | HOME="$MOCK_HOME" GITHUB_NICKNAME="testuser" bash "$MOCK_HOME/.claude/hooks/session_start.sh" 2>/dev/null
+echo "$HOOK_INPUT" | HOME="$MOCK_HOME" CLAUDE_LOGGER_USER="testuser" bash "$MOCK_HOME/.claude/hooks/session_start.sh" 2>/dev/null
 
 # Check session captures project context
 SESSION_FILE="$MOCK_HOME/.claude-logger/sessions/testuser/$SESSION_ID.json"
@@ -385,6 +385,54 @@ if [ -f "$SESSION_FILE" ]; then
   fi
 else
   test_fail "session file not found"
+fi
+
+cleanup_test
+
+#######################################
+# Test: Project-installed hooks respect global-mode marker
+# This tests hooks installed via `./install.sh /path/to/project`
+# when a global-mode marker exists from a previous global install
+#######################################
+test_start "project-installed hooks respect global-mode marker"
+setup_test
+
+# First, do a global install to create the marker
+run_global_install "testuser" > /dev/null
+
+# Then, install to a project directory (simulating outdated hooks scenario)
+mkdir -p "$TEST_TMPDIR/project"
+run_project_install "$TEST_TMPDIR/project" "testuser" > /dev/null
+
+# The global-mode marker should still exist
+if [ ! -f "$MOCK_HOME/.claude-logger/global-mode" ]; then
+  test_fail "global-mode marker was removed by project install"
+  cleanup_test
+else
+  # Run the PROJECT hooks (not global) with global-mode marker present
+  SESSION_ID="test-project-respects-global-$(date +%s)"
+  HOOK_INPUT=$(cat <<EOF
+{
+  "session_id": "$SESSION_ID",
+  "cwd": "$TEST_TMPDIR/project",
+  "transcript_path": "/tmp/transcript.jsonl"
+}
+EOF
+)
+
+  echo "$HOOK_INPUT" | HOME="$MOCK_HOME" CLAUDE_LOGGER_USER="testuser" bash "$TEST_TMPDIR/project/.claude/hooks/session_start.sh" 2>/dev/null
+
+  # Check session was created in GLOBAL location (because marker exists)
+  if [ -f "$MOCK_HOME/.claude-logger/sessions/testuser/$SESSION_ID.json" ]; then
+    test_pass "project hooks correctly routed to global storage"
+  else
+    # Check if it was created in project (wrong - should respect global marker)
+    if [ -f "$TEST_TMPDIR/project/.claude/sessions/testuser/$SESSION_ID.json" ]; then
+      test_fail "project hooks ignored global-mode marker - stored in project instead"
+    else
+      test_fail "session file not created anywhere"
+    fi
+  fi
 fi
 
 cleanup_test

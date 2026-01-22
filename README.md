@@ -36,10 +36,10 @@ cd claude-logger
 ./install.sh ~/path/to/your-project
 
 # 4. Add to your shell profile (.bashrc, .zshrc, etc.)
-export GITHUB_NICKNAME="your-nickname"
+export CLAUDE_LOGGER_USER="your-nickname"
 ```
 
-Session data is captured automatically on every Claude Code session when `GITHUB_NICKNAME` is set.
+Session data is captured automatically on every Claude Code session when `CLAUDE_LOGGER_USER` is set.
 
 **[Full Getting Started Guide](docs/GETTING-STARTED.md)** - detailed installation, verification, and usage instructions.
 

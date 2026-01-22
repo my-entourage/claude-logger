@@ -54,56 +54,56 @@ else
 fi
 
 #######################################
-# Get GitHub nickname (from env or prompt)
+# Get user identifier (from env or prompt)
 #######################################
-GITHUB_NICKNAME="${GITHUB_NICKNAME:-}"
+CLAUDE_LOGGER_USER="${CLAUDE_LOGGER_USER:-}"
 NICKNAME_FROM_ENV=false
 
 # Check if already set in environment
-if [ -n "$GITHUB_NICKNAME" ]; then
+if [ -n "$CLAUDE_LOGGER_USER" ]; then
   # Normalize to lowercase
-  GITHUB_NICKNAME=$(echo "$GITHUB_NICKNAME" | tr '[:upper:]' '[:lower:]')
+  CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
 
-  if validate_nickname "$GITHUB_NICKNAME"; then
+  if validate_nickname "$CLAUDE_LOGGER_USER"; then
     echo ""
-    echo "Using GITHUB_NICKNAME from environment: $GITHUB_NICKNAME"
+    echo "Using CLAUDE_LOGGER_USER from environment: $CLAUDE_LOGGER_USER"
     NICKNAME_FROM_ENV=true
   else
-    echo "Warning: GITHUB_NICKNAME '$GITHUB_NICKNAME' is invalid, prompting for new one."
-    GITHUB_NICKNAME=""
+    echo "Warning: CLAUDE_LOGGER_USER '$CLAUDE_LOGGER_USER' is invalid, prompting for new one."
+    CLAUDE_LOGGER_USER=""
   fi
 fi
 
 # Prompt if not set or invalid
-if [ -z "$GITHUB_NICKNAME" ]; then
+if [ -z "$CLAUDE_LOGGER_USER" ]; then
   echo ""
-  echo "Claude Tracker requires a nickname to organize your sessions."
+  echo "Claude Tracker requires a username to organize your sessions."
   echo "This should be your GitHub username or a consistent identifier."
   echo "(Valid: 1-39 characters, lowercase letters, numbers, dashes, underscores)"
   echo ""
 
   while true; do
-    read -p "Enter your nickname: " GITHUB_NICKNAME
+    read -p "Enter your username: " CLAUDE_LOGGER_USER
 
     # Normalize to lowercase
-    GITHUB_NICKNAME=$(echo "$GITHUB_NICKNAME" | tr '[:upper:]' '[:lower:]')
+    CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
 
-    if [ -z "$GITHUB_NICKNAME" ]; then
-      echo "Error: Nickname cannot be empty. Please try again."
+    if [ -z "$CLAUDE_LOGGER_USER" ]; then
+      echo "Error: Username cannot be empty. Please try again."
       continue
     fi
 
-    if validate_nickname "$GITHUB_NICKNAME"; then
+    if validate_nickname "$CLAUDE_LOGGER_USER"; then
       break
     else
-      echo "Error: Invalid nickname '$GITHUB_NICKNAME'."
+      echo "Error: Invalid username '$CLAUDE_LOGGER_USER'."
       echo "Must be 1-39 characters, lowercase alphanumeric with dashes/underscores only."
       echo "Please try again."
     fi
   done
 
   echo ""
-  echo "Using nickname: $GITHUB_NICKNAME"
+  echo "Using username: $CLAUDE_LOGGER_USER"
 fi
 
 # Create directories
@@ -321,13 +321,13 @@ fi
 if [ "$NICKNAME_FROM_ENV" = false ]; then
   echo "IMPORTANT: Add this to your shell profile (.bashrc, .zshrc, etc.):"
   echo ""
-  echo "  export GITHUB_NICKNAME=\"$GITHUB_NICKNAME\""
+  echo "  export CLAUDE_LOGGER_USER=\"$CLAUDE_LOGGER_USER\""
   echo ""
 fi
 
 if [ "$GLOBAL_MODE" = true ]; then
-  echo "Session data will be saved to: $HOME/.claude-logger/sessions/$GITHUB_NICKNAME/"
+  echo "Session data will be saved to: $HOME/.claude-logger/sessions/$CLAUDE_LOGGER_USER/"
 else
-  echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/$GITHUB_NICKNAME/"
+  echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/$CLAUDE_LOGGER_USER/"
 fi
 echo ""

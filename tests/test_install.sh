@@ -271,11 +271,11 @@ setup_test
 
 run_install "$TEST_TMPDIR/project" "testuser" > /dev/null
 
-# Check for GITHUB_NICKNAME in installed hooks (new feature)
-if grep -q "GITHUB_NICKNAME" "$TEST_TMPDIR/project/.claude/hooks/session_start.sh"; then
-  test_pass "hooks have GITHUB_NICKNAME support"
+# Check for CLAUDE_LOGGER_USER in installed hooks (new feature)
+if grep -q "CLAUDE_LOGGER_USER" "$TEST_TMPDIR/project/.claude/hooks/session_start.sh"; then
+  test_pass "hooks have CLAUDE_LOGGER_USER support"
 else
-  test_fail "hooks missing GITHUB_NICKNAME (old version?)"
+  test_fail "hooks missing CLAUDE_LOGGER_USER (old version?)"
 fi
 
 cleanup_test

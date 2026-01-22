@@ -17,7 +17,7 @@ Claude Logger is a meta-optimization system that captures Claude Code session da
 **Data Flow:**
 1. SessionStart hook reads Claude Code input, captures git/config state, writes JSON to `.claude/sessions/{nickname}/{session_id}.json`
 2. SessionEnd hook updates session JSON with final state, copies Claude transcript to project
-3. Session files are per-user (organized by GITHUB_NICKNAME env var)
+3. Session files are per-user (organized by CLAUDE_LOGGER_USER env var)
 
 **Design Principles:**
 - Fail gracefully: hooks never break Claude Code, they silently exit on errors
@@ -44,7 +44,7 @@ bash tests/test_install.sh
 - Tests use temporary directories and clean up after themselves
 - Hook tests simulate Claude Code input by piping JSON to stdin
 - Tests verify atomic writes, lock file handling, orphan detection, edge cases
-- `GITHUB_NICKNAME` environment variable must be set (or test mocks it)
+- `CLAUDE_LOGGER_USER` environment variable must be set (or test mocks it)
 
 ## Branch Strategy
 

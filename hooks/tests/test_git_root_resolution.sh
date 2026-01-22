@@ -20,7 +20,7 @@ mkdir -p "$TEST_TMPDIR/src"
 input='{"session_id":"test-empty-repo","cwd":"'"$TEST_TMPDIR/src"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-root_session="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-empty-repo.json"
+root_session="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-empty-repo.json"
 if assert_file_exists "$root_session"; then
   test_pass "Empty repo resolved to git root"
 else
@@ -49,7 +49,7 @@ mkdir -p "$TEST_TMPDIR/src"
 input='{"session_id":"test-detached","cwd":"'"$TEST_TMPDIR/src"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-root_session="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-detached.json"
+root_session="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-detached.json"
 if assert_file_exists "$root_session"; then
   test_pass "Detached HEAD resolved to git root"
 else
@@ -78,8 +78,8 @@ input='{"session_id":"test-nested","cwd":"'"$TEST_TMPDIR/vendor/some-lib/src"'",
 run_hook "session_start.sh" "$input"
 
 # Session should be in inner repo's root, not outer
-inner_session="$TEST_TMPDIR/vendor/some-lib/.claude/sessions/$GITHUB_NICKNAME/test-nested.json"
-outer_session="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-nested.json"
+inner_session="$TEST_TMPDIR/vendor/some-lib/.claude/sessions/$CLAUDE_LOGGER_USER/test-nested.json"
+outer_session="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-nested.json"
 
 if assert_file_exists "$inner_session" && [ ! -f "$outer_session" ]; then
   test_pass "Nested repo used inner repo root"
@@ -125,8 +125,8 @@ input='{"session_id":"test-submodule","cwd":"'"$TEST_TMPDIR/libs/mylib/src"'","s
 run_hook "session_start.sh" "$input"
 
 # Session should be in submodule root (the nested repo)
-submodule_session="$TEST_TMPDIR/libs/mylib/.claude/sessions/$GITHUB_NICKNAME/test-submodule.json"
-main_session="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-submodule.json"
+submodule_session="$TEST_TMPDIR/libs/mylib/.claude/sessions/$CLAUDE_LOGGER_USER/test-submodule.json"
+main_session="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-submodule.json"
 
 if assert_file_exists "$submodule_session" && [ ! -f "$main_session" ]; then
   test_pass "Submodule used submodule root"
@@ -157,7 +157,7 @@ input='{"session_id":"test-symlink","cwd":"'"$link_dir/linked"'","source":"start
 run_hook "session_start.sh" "$input"
 
 # Session should be in the git root (following the symlink)
-root_session="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-symlink.json"
+root_session="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-symlink.json"
 if assert_file_exists "$root_session"; then
   test_pass "Symlinked directory resolved to git root"
 else
@@ -181,7 +181,7 @@ mkdir -p "$TEST_TMPDIR/My Projects/Web App/src"
 input='{"session_id":"test-spaces","cwd":"'"$TEST_TMPDIR/My Projects/Web App/src"'","source":"startup"}'
 run_hook "session_start.sh" "$input"
 
-root_session="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-spaces.json"
+root_session="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-spaces.json"
 if assert_file_exists "$root_session"; then
   test_pass "Path with spaces resolved to git root"
 else
@@ -214,8 +214,8 @@ input='{"session_id":"test-worktree","cwd":"'"$worktree_dir/src"'","source":"sta
 run_hook "session_start.sh" "$input"
 
 # Session should be in worktree root, not main repo
-worktree_session="$worktree_dir/.claude/sessions/$GITHUB_NICKNAME/test-worktree.json"
-main_session="$TEST_TMPDIR/.claude/sessions/$GITHUB_NICKNAME/test-worktree.json"
+worktree_session="$worktree_dir/.claude/sessions/$CLAUDE_LOGGER_USER/test-worktree.json"
+main_session="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-worktree.json"
 
 if assert_file_exists "$worktree_session" && [ ! -f "$main_session" ]; then
   test_pass "Worktree used worktree root"
@@ -248,7 +248,7 @@ input='{"session_id":"test-broken-link","cwd":"'"$TEST_TMPDIR/links"'","source":
 run_hook "session_start.sh" "$input"
 
 # Session should be in the links directory (not a git repo)
-session_file="$TEST_TMPDIR/links/.claude/sessions/$GITHUB_NICKNAME/test-broken-link.json"
+session_file="$TEST_TMPDIR/links/.claude/sessions/$CLAUDE_LOGGER_USER/test-broken-link.json"
 if assert_file_exists "$session_file"; then
   test_pass "Non-git directory with broken symlink handled gracefully"
 else
