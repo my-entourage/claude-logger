@@ -90,6 +90,40 @@ resolve_project_root() {
 }
 
 #######################################
+# Extract org and repo from git remote
+# Parses SSH or HTTPS remote URLs, falls back to _local/{dirname}
+#######################################
+extract_org_repo() {
+  local dir="$1"
+  local git_timeout=3
+  local remote_url org repo
+
+  remote_url=$(run_with_timeout "$git_timeout" git -C "$dir" remote get-url origin 2>/dev/null)
+
+  if [ -n "$remote_url" ]; then
+    # Parse SSH: git@github.com:org/repo.git
+    if [[ "$remote_url" =~ git@[^:]+:([^/]+)/([^/]+)(\.git)?$ ]]; then
+      org="${BASH_REMATCH[1]}"
+      repo="${BASH_REMATCH[2]%.git}"
+    # Parse HTTPS: https://github.com/org/repo.git
+    elif [[ "$remote_url" =~ https?://[^/]+/([^/]+)/([^/]+)(\.git)?$ ]]; then
+      org="${BASH_REMATCH[1]}"
+      repo="${BASH_REMATCH[2]%.git}"
+    fi
+
+    if [ -n "$org" ] && [ -n "$repo" ]; then
+      echo "$org" "$repo"
+      return 0
+    fi
+  fi
+
+  # Fallback: _local and directory name
+  local dirname
+  dirname=$(basename "$dir")
+  echo "_local" "$dirname"
+}
+
+#######################################
 # Read hook input
 #######################################
 HOOK_INPUT=$(cat)
@@ -127,34 +161,51 @@ fi
 PROJECT_ROOT=$(resolve_project_root "$CWD")
 
 #######################################
-# Get user nickname (required for tracking)
+# Determine storage location (global vs project)
+# Global mode: organize by git org/repo
+# Project mode: organize by username (requires CLAUDE_LOGGER_USER)
 #######################################
 CLAUDE_LOGGER_USER="${CLAUDE_LOGGER_USER:-}"
-if [ -z "$CLAUDE_LOGGER_USER" ]; then
-  echo "⚠️  CLAUDE_LOGGER_USER not set - session tracking disabled!" >&2
-  echo "   Add to your shell profile: export CLAUDE_LOGGER_USER=\"your-username\"" >&2
-  echo "   Then restart your terminal or run: source ~/.zshrc" >&2
-  exit 0
-fi
+GIT_ORG=""
+GIT_REPO=""
 
-# Normalize to lowercase
-CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
-
-# Validate nickname
-if ! validate_nickname "$CLAUDE_LOGGER_USER"; then
-  echo "Warning: CLAUDE_LOGGER_USER '$CLAUDE_LOGGER_USER' is invalid." >&2
-  echo "Must be 1-39 characters, lowercase alphanumeric with dashes/underscores only." >&2
-  echo "Session tracking skipped." >&2
-  exit 0
-fi
-
-#######################################
-# Determine storage location (global vs project)
-#######################################
 if [ -f "$HOME/.claude-logger/global-mode" ]; then
-  SESSIONS_DIR="$HOME/.claude-logger/sessions/$CLAUDE_LOGGER_USER"
+  # Global mode: organize by org/repo, username not required
+  read -r GIT_ORG GIT_REPO <<< "$(extract_org_repo "$PROJECT_ROOT")"
+  SESSIONS_DIR="$HOME/.claude-logger/sessions/$GIT_ORG/$GIT_REPO"
+
+  # If username is set, validate and normalize (optional for global mode)
+  if [ -n "$CLAUDE_LOGGER_USER" ]; then
+    CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
+    if ! validate_nickname "$CLAUDE_LOGGER_USER"; then
+      # Invalid username, just clear it (non-fatal in global mode)
+      CLAUDE_LOGGER_USER=""
+    fi
+  fi
 else
+  # Project mode: organize by username (required)
+  if [ -z "$CLAUDE_LOGGER_USER" ]; then
+    echo "⚠️  CLAUDE_LOGGER_USER not set - session tracking disabled!" >&2
+    echo "   Add to your shell profile: export CLAUDE_LOGGER_USER=\"your-username\"" >&2
+    echo "   Then restart your terminal or run: source ~/.zshrc" >&2
+    exit 0
+  fi
+
+  # Normalize to lowercase
+  CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
+
+  # Validate nickname
+  if ! validate_nickname "$CLAUDE_LOGGER_USER"; then
+    echo "Warning: CLAUDE_LOGGER_USER '$CLAUDE_LOGGER_USER' is invalid." >&2
+    echo "Must be 1-39 characters, lowercase alphanumeric with dashes/underscores only." >&2
+    echo "Session tracking skipped." >&2
+    exit 0
+  fi
+
   SESSIONS_DIR="$PROJECT_ROOT/.claude/sessions/$CLAUDE_LOGGER_USER"
+
+  # Extract org/repo for metadata (even in project mode)
+  read -r GIT_ORG GIT_REPO <<< "$(extract_org_repo "$PROJECT_ROOT")"
 fi
 
 #######################################
@@ -366,7 +417,7 @@ fi
 TMP_FILE="$SESSION_FILE.tmp.$$"
 
 jq -n \
-  --argjson schema_version 1 \
+  --argjson schema_version 2 \
   --arg session_id "$SESSION_ID" \
   --arg transcript_path "$TRANSCRIPT_PATH" \
   --arg status "in_progress" \
@@ -374,6 +425,8 @@ jq -n \
   --arg cwd "$CWD" \
   --arg source "$SOURCE" \
   --argjson git "$GIT_DATA" \
+  --arg git_org "$GIT_ORG" \
+  --arg git_repo "$GIT_REPO" \
   --argjson claude_md "$CLAUDE_MD_CONTENT" \
   --arg claude_md_path "$CLAUDE_MD_PATH" \
   --argjson skills "$SKILLS_OBJ" \
@@ -388,7 +441,7 @@ jq -n \
       timestamp: $timestamp,
       cwd: $cwd,
       source: $source,
-      git: $git,
+      git: ($git + {org: $git_org, repo: $git_repo}),
       config: {
         claude_md: $claude_md,
         claude_md_path: $claude_md_path,

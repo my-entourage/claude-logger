@@ -86,6 +86,40 @@ resolve_project_root() {
 }
 
 #######################################
+# Extract org and repo from git remote
+# Parses SSH or HTTPS remote URLs, falls back to _local/{dirname}
+#######################################
+extract_org_repo() {
+  local dir="$1"
+  local git_timeout=3
+  local remote_url org repo
+
+  remote_url=$(run_with_timeout "$git_timeout" git -C "$dir" remote get-url origin 2>/dev/null)
+
+  if [ -n "$remote_url" ]; then
+    # Parse SSH: git@github.com:org/repo.git
+    if [[ "$remote_url" =~ git@[^:]+:([^/]+)/([^/]+)(\.git)?$ ]]; then
+      org="${BASH_REMATCH[1]}"
+      repo="${BASH_REMATCH[2]%.git}"
+    # Parse HTTPS: https://github.com/org/repo.git
+    elif [[ "$remote_url" =~ https?://[^/]+/([^/]+)/([^/]+)(\.git)?$ ]]; then
+      org="${BASH_REMATCH[1]}"
+      repo="${BASH_REMATCH[2]%.git}"
+    fi
+
+    if [ -n "$org" ] && [ -n "$repo" ]; then
+      echo "$org" "$repo"
+      return 0
+    fi
+  fi
+
+  # Fallback: _local and directory name
+  local dirname
+  dirname=$(basename "$dir")
+  echo "_local" "$dirname"
+}
+
+#######################################
 # Read and validate input (single jq call)
 #######################################
 HOOK_INPUT=$(cat)
@@ -114,31 +148,42 @@ fi
 PROJECT_ROOT=$(resolve_project_root "$CWD")
 
 #######################################
-# Get user nickname (required for tracking)
+# Determine storage location (global vs project)
+# Global mode: organize by git org/repo
+# Project mode: organize by username (requires CLAUDE_LOGGER_USER)
 #######################################
 CLAUDE_LOGGER_USER="${CLAUDE_LOGGER_USER:-}"
-if [ -z "$CLAUDE_LOGGER_USER" ]; then
-  echo "⚠️  CLAUDE_LOGGER_USER not set - session not saved!" >&2
-  echo "   Add to your shell profile: export CLAUDE_LOGGER_USER=\"your-username\"" >&2
-  exit 0
-fi
 
-# Normalize to lowercase
-CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
-
-# Validate nickname
-if ! validate_nickname "$CLAUDE_LOGGER_USER"; then
-  echo "Warning: CLAUDE_LOGGER_USER '$CLAUDE_LOGGER_USER' is invalid." >&2
-  echo "Session tracking skipped." >&2
-  exit 0
-fi
-
-#######################################
-# Determine storage location (global vs project)
-#######################################
 if [ -f "$HOME/.claude-logger/global-mode" ]; then
-  SESSIONS_BASE="$HOME/.claude-logger/sessions/$CLAUDE_LOGGER_USER"
+  # Global mode: organize by org/repo, username not required
+  read -r GIT_ORG GIT_REPO <<< "$(extract_org_repo "$PROJECT_ROOT")"
+  SESSIONS_BASE="$HOME/.claude-logger/sessions/$GIT_ORG/$GIT_REPO"
+
+  # If username is set, validate and normalize (optional for global mode)
+  if [ -n "$CLAUDE_LOGGER_USER" ]; then
+    CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
+    if ! validate_nickname "$CLAUDE_LOGGER_USER"; then
+      CLAUDE_LOGGER_USER=""
+    fi
+  fi
 else
+  # Project mode: organize by username (required)
+  if [ -z "$CLAUDE_LOGGER_USER" ]; then
+    echo "⚠️  CLAUDE_LOGGER_USER not set - session not saved!" >&2
+    echo "   Add to your shell profile: export CLAUDE_LOGGER_USER=\"your-username\"" >&2
+    exit 0
+  fi
+
+  # Normalize to lowercase
+  CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
+
+  # Validate nickname
+  if ! validate_nickname "$CLAUDE_LOGGER_USER"; then
+    echo "Warning: CLAUDE_LOGGER_USER '$CLAUDE_LOGGER_USER' is invalid." >&2
+    echo "Session tracking skipped." >&2
+    exit 0
+  fi
+
   SESSIONS_BASE="$PROJECT_ROOT/.claude/sessions/$CLAUDE_LOGGER_USER"
 fi
 

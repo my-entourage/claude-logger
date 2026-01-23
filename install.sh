@@ -55,55 +55,73 @@ fi
 
 #######################################
 # Get user identifier (from env or prompt)
+# Only required for project-level installs
 #######################################
 CLAUDE_LOGGER_USER="${CLAUDE_LOGGER_USER:-}"
 NICKNAME_FROM_ENV=false
 
-# Check if already set in environment
-if [ -n "$CLAUDE_LOGGER_USER" ]; then
-  # Normalize to lowercase
-  CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
+if [ "$GLOBAL_MODE" = true ]; then
+  # Global mode: username not required, sessions organized by org/repo
+  echo ""
+  echo "Global mode: sessions will be organized by git repository (org/repo)"
 
-  if validate_nickname "$CLAUDE_LOGGER_USER"; then
-    echo ""
-    echo "Using CLAUDE_LOGGER_USER from environment: $CLAUDE_LOGGER_USER"
-    NICKNAME_FROM_ENV=true
-  else
-    echo "Warning: CLAUDE_LOGGER_USER '$CLAUDE_LOGGER_USER' is invalid, prompting for new one."
-    CLAUDE_LOGGER_USER=""
+  # Still allow username if set in environment (optional)
+  if [ -n "$CLAUDE_LOGGER_USER" ]; then
+    CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
+    if validate_nickname "$CLAUDE_LOGGER_USER"; then
+      NICKNAME_FROM_ENV=true
+    else
+      CLAUDE_LOGGER_USER=""
+    fi
   fi
-fi
-
-# Prompt if not set or invalid
-if [ -z "$CLAUDE_LOGGER_USER" ]; then
-  echo ""
-  echo "Claude Tracker requires a username to organize your sessions."
-  echo "This should be your GitHub username or a consistent identifier."
-  echo "(Valid: 1-39 characters, lowercase letters, numbers, dashes, underscores)"
-  echo ""
-
-  while true; do
-    read -p "Enter your username: " CLAUDE_LOGGER_USER
-
+else
+  # Project mode: username required
+  # Check if already set in environment
+  if [ -n "$CLAUDE_LOGGER_USER" ]; then
     # Normalize to lowercase
     CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
 
-    if [ -z "$CLAUDE_LOGGER_USER" ]; then
-      echo "Error: Username cannot be empty. Please try again."
-      continue
-    fi
-
     if validate_nickname "$CLAUDE_LOGGER_USER"; then
-      break
+      echo ""
+      echo "Using CLAUDE_LOGGER_USER from environment: $CLAUDE_LOGGER_USER"
+      NICKNAME_FROM_ENV=true
     else
-      echo "Error: Invalid username '$CLAUDE_LOGGER_USER'."
-      echo "Must be 1-39 characters, lowercase alphanumeric with dashes/underscores only."
-      echo "Please try again."
+      echo "Warning: CLAUDE_LOGGER_USER '$CLAUDE_LOGGER_USER' is invalid, prompting for new one."
+      CLAUDE_LOGGER_USER=""
     fi
-  done
+  fi
 
-  echo ""
-  echo "Using username: $CLAUDE_LOGGER_USER"
+  # Prompt if not set or invalid
+  if [ -z "$CLAUDE_LOGGER_USER" ]; then
+    echo ""
+    echo "Claude Tracker requires a username to organize your sessions."
+    echo "This should be your GitHub username or a consistent identifier."
+    echo "(Valid: 1-39 characters, lowercase letters, numbers, dashes, underscores)"
+    echo ""
+
+    while true; do
+      read -p "Enter your username: " CLAUDE_LOGGER_USER
+
+      # Normalize to lowercase
+      CLAUDE_LOGGER_USER=$(echo "$CLAUDE_LOGGER_USER" | tr '[:upper:]' '[:lower:]')
+
+      if [ -z "$CLAUDE_LOGGER_USER" ]; then
+        echo "Error: Username cannot be empty. Please try again."
+        continue
+      fi
+
+      if validate_nickname "$CLAUDE_LOGGER_USER"; then
+        break
+      else
+        echo "Error: Invalid username '$CLAUDE_LOGGER_USER'."
+        echo "Must be 1-39 characters, lowercase alphanumeric with dashes/underscores only."
+        echo "Please try again."
+      fi
+    done
+
+    echo ""
+    echo "Using username: $CLAUDE_LOGGER_USER"
+  fi
 fi
 
 # Create directories
@@ -320,16 +338,16 @@ if [ "$GITIGNORE_OK" = false ]; then
   echo ""
 fi
 
-if [ "$NICKNAME_FROM_ENV" = false ]; then
-  echo "IMPORTANT: Add this to your shell profile (.bashrc, .zshrc, etc.):"
-  echo ""
-  echo "  export CLAUDE_LOGGER_USER=\"$CLAUDE_LOGGER_USER\""
-  echo ""
-fi
-
 if [ "$GLOBAL_MODE" = true ]; then
-  echo "Session data will be saved to: $HOME/.claude-logger/sessions/$CLAUDE_LOGGER_USER/"
+  echo "Session data will be saved to: ~/.claude-logger/sessions/{org}/{repo}/"
+  echo "(Directory structure based on git remote origin)"
 else
+  if [ "$NICKNAME_FROM_ENV" = false ]; then
+    echo "IMPORTANT: Add this to your shell profile (.bashrc, .zshrc, etc.):"
+    echo ""
+    echo "  export CLAUDE_LOGGER_USER=\"$CLAUDE_LOGGER_USER\""
+    echo ""
+  fi
   echo "Session data will be saved to: $PROJECT_DIR/.claude/sessions/$CLAUDE_LOGGER_USER/"
 fi
 echo ""

@@ -39,6 +39,12 @@ TEST_TMPDIR=""
 setup_test_env() {
   TEST_TMPDIR=$(mktemp -d)
 
+  # Mock HOME to isolate tests from real user environment
+  # This ensures tests don't pick up global-mode marker from real ~/.claude-logger
+  ORIGINAL_HOME="$HOME"
+  export HOME="$TEST_TMPDIR/mock-home"
+  mkdir -p "$HOME"
+
   # Set test user for session tracking
   export CLAUDE_LOGGER_USER="test-user"
 
@@ -56,6 +62,11 @@ setup_test_env() {
 
 # Cleanup test environment
 cleanup_test_env() {
+  # Restore original HOME
+  if [ -n "$ORIGINAL_HOME" ]; then
+    export HOME="$ORIGINAL_HOME"
+  fi
+
   if [ -n "$TEST_TMPDIR" ] && [ -d "$TEST_TMPDIR" ]; then
     rm -rf "$TEST_TMPDIR"
   fi

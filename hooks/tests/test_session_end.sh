@@ -13,7 +13,7 @@ create_started_session() {
 
   cat > "$session_file" << EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "$session_id",
   "transcript_path": "/tmp/test.jsonl",
   "status": "in_progress",
@@ -879,7 +879,7 @@ mkdir -p "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER"
 session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-end-subdir.json"
 cat > "$session_file" << 'EOF'
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "test-end-subdir",
   "transcript_path": "",
   "status": "in_progress",

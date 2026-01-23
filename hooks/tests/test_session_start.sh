@@ -348,7 +348,7 @@ run_hook "session_start.sh" "$input"
 
 session_file="$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/test-schema.json"
 if assert_file_exists "$session_file" && \
-   assert_json_value "$session_file" '.schema_version' '1'; then
+   assert_json_value "$session_file" '.schema_version' '2'; then
   test_pass
 fi
 
