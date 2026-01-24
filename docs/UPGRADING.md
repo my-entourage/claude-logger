@@ -1,37 +1,41 @@
 # Upgrading Claude Logger
 
-This guide covers upgrading from a previous version of Claude Logger to the current version with user-based session organization and optional global installation.
+This guide covers upgrading from a previous version of Claude Logger.
 
 ## What Changed
 
-### Session Organization (Per-User)
+### Schema Version 2 (Project Organization)
 
-Sessions are now organized by user:
+Sessions now include `org` and `repo` fields in the git metadata, extracted from the git remote URL.
 
-| Version | Session Path |
-|---------|--------------|
-| Old | `.claude/sessions/{session_id}.json` |
-| New | `.claude/sessions/{nickname}/{session_id}.json` |
+### Global Mode: Org/Repo Organization
 
-This allows teams to track sessions per-user and requires the `CLAUDE_LOGGER_USER` environment variable.
+Global mode now organizes sessions by git org/repo instead of username:
 
-### Global Installation Mode (New)
+| Version | Global Session Path |
+|---------|---------------------|
+| Old | `~/.claude-logger/sessions/{username}/{session_id}.json` |
+| New | `~/.claude-logger/sessions/{org}/{repo}/{session_id}.json` |
 
-You can now install claude-logger once for all projects using `--global`:
+This provides better organization when working across multiple repositories.
 
-| Mode | Command | Sessions Stored At |
-|------|---------|-------------------|
-| Project (existing) | `./install.sh /path/to/project` | `PROJECT/.claude/sessions/{nickname}/` |
-| Global (new) | `./install.sh --global` | `~/.claude-logger/sessions/{nickname}/` |
+### Username No Longer Required for Global Mode
+
+The `CLAUDE_LOGGER_USER` environment variable is now optional for global installs. Sessions are automatically organized by git org/repo.
+
+| Mode | Command | Sessions Stored At | Username Required |
+|------|---------|-------------------|-------------------|
+| Project | `./install.sh /path/to/project` | `PROJECT/.claude/sessions/{username}/` | Yes |
+| Global | `./install.sh --global` | `~/.claude-logger/sessions/{org}/{repo}/` | No |
 
 ## Upgrade Steps
 
-### 1. Update Your Shell Profile
+### 1. Update Your Shell Profile (Project Mode Only)
 
-Add `CLAUDE_LOGGER_USER` to your shell profile (`.bashrc`, `.zshrc`, etc.):
+For project-level installs, ensure `CLAUDE_LOGGER_USER` is set in your shell profile (`.bashrc`, `.zshrc`, etc.):
 
 ```bash
-export CLAUDE_LOGGER_USER="your-nickname"
+export CLAUDE_LOGGER_USER="your-username"
 ```
 
 Then reload:
@@ -39,6 +43,8 @@ Then reload:
 ```bash
 source ~/.zshrc  # or your profile file
 ```
+
+For global installs, this step is optional - sessions are organized by git org/repo automatically.
 
 ### 2. Re-run the Installer
 
@@ -102,7 +108,7 @@ Instead of maintaining hooks in each project, use global mode:
 ./install.sh --global
 ```
 
-This installs hooks once at `~/.claude/hooks/` and stores all sessions at `~/.claude-logger/sessions/`. Each session records which project it was run in via the `cwd` field.
+This installs hooks once at `~/.claude/hooks/` and stores all sessions at `~/.claude-logger/sessions/{org}/{repo}/`. Sessions are automatically organized by the git remote origin, making it easy to find sessions for any project.
 
 **Note:** Global mode takes precedence. Once installed globally, even project-installed hooks will route sessions to the global location.
 

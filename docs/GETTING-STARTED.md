@@ -32,11 +32,11 @@ This data enables future optimization - comparing session outcomes across differ
 
 - **git** - for capturing repository state
 
-### Required Environment Variable
+### Environment Variable (Project Mode Only)
 
 - **CLAUDE_LOGGER_USER** - Your identifier for session tracking (typically your GitHub username)
 
-  This must be set in your shell profile for sessions to be tracked.
+  This must be set in your shell profile for **project-level** installs. Global installs organize sessions by git org/repo automatically and don't require this variable.
 
 ## Installation
 
@@ -51,10 +51,10 @@ cd claude-logger
 
 Claude Logger supports two installation modes:
 
-| Mode | Command | Best For |
-|------|---------|----------|
-| **Global** | `./install.sh --global` | Personal use, track all projects in one place |
-| **Project** | `./install.sh /path/to/project` | Team projects, sessions stored with project |
+| Mode | Command | Best For | Username Required |
+|------|---------|----------|-------------------|
+| **Global** | `./install.sh --global` | Personal use, track all projects in one place | No |
+| **Project** | `./install.sh /path/to/project` | Team projects, sessions stored with project | Yes |
 
 #### Option A: Global Installation (Recommended for Personal Use)
 
@@ -62,7 +62,7 @@ Claude Logger supports two installation modes:
 ./install.sh --global
 ```
 
-This installs hooks to `~/.claude/hooks/` and stores all sessions centrally at `~/.claude-logger/sessions/{nickname}/`. Sessions from any project are collected in one location.
+This installs hooks to `~/.claude/hooks/` and stores all sessions centrally at `~/.claude-logger/sessions/{org}/{repo}/`. Sessions are organized by the git remote origin (e.g., `github.com/my-org/my-repo` → `my-org/my-repo/`). For repos without a remote, falls back to `_local/{dirname}/`.
 
 #### Option B: Project Installation
 
@@ -70,7 +70,7 @@ This installs hooks to `~/.claude/hooks/` and stores all sessions centrally at `
 ./install.sh /path/to/your-project
 ```
 
-This installs hooks to the project's `.claude/hooks/` directory. Sessions are stored at `PROJECT/.claude/sessions/{nickname}/`.
+This installs hooks to the project's `.claude/hooks/` directory. Sessions are stored at `PROJECT/.claude/sessions/{username}/`.
 
 Or install to current directory:
 
@@ -79,19 +79,19 @@ cd /path/to/your-project
 /path/to/claude-logger/install.sh
 ```
 
-The installer will prompt you for your nickname (typically your GitHub username). This is required for session tracking.
+The installer will prompt you for your username (typically your GitHub username). This is required for project-level session tracking.
 
-### Step 3: Configure Your Environment
+### Step 3: Configure Your Environment (Project Mode Only)
 
-Add the `CLAUDE_LOGGER_USER` environment variable to your shell profile (`.bashrc`, `.zshrc`, etc.):
+For **project-level installs**, add the `CLAUDE_LOGGER_USER` environment variable to your shell profile (`.bashrc`, `.zshrc`, etc.):
 
 ```bash
-export CLAUDE_LOGGER_USER="your-nickname"
+export CLAUDE_LOGGER_USER="your-username"
 ```
 
 Then reload your shell or run `source ~/.zshrc` (or your profile file).
 
-**Important:** Sessions are only tracked when `CLAUDE_LOGGER_USER` is set. If it's not set, hooks exit silently without tracking.
+**Important:** For project-level installs, sessions are only tracked when `CLAUDE_LOGGER_USER` is set. If it's not set, hooks exit silently without tracking. Global installs don't require this variable.
 
 ### Step 4: Verify Installation
 
@@ -126,23 +126,27 @@ Session storage location depends on your installation mode:
 
 | Mode | Session Path |
 |------|--------------|
-| Global | `~/.claude-logger/sessions/{nickname}/{session-id}.json` |
-| Project | `PROJECT/.claude/sessions/{nickname}/{session-id}.json` |
+| Global | `~/.claude-logger/sessions/{org}/{repo}/{session-id}.json` |
+| Project | `PROJECT/.claude/sessions/{username}/{session-id}.json` |
 
-Each team member's sessions are organized in their own subdirectory based on their `CLAUDE_LOGGER_USER`.
+For global mode, sessions are organized by git org/repo (extracted from remote URL). For project mode, sessions are organized by `CLAUDE_LOGGER_USER`.
 
 ### Viewing Your Sessions
 
 After your first session, explore the data:
 
 ```bash
-# For global installation:
-SESSION_DIR=~/.claude-logger/sessions/$CLAUDE_LOGGER_USER
+# For global installation (sessions organized by org/repo):
+# Find sessions for a specific repo:
+SESSION_DIR=~/.claude-logger/sessions/my-org/my-repo
+
+# Or list all repos:
+ls ~/.claude-logger/sessions/
 
 # For project installation:
 SESSION_DIR=.claude/sessions/$CLAUDE_LOGGER_USER
 
-# List your sessions
+# List sessions
 ls $SESSION_DIR/
 
 # View a session (pretty-printed)
@@ -158,7 +162,7 @@ Each session file contains:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "abc-123-def",
   "transcript_path": "~/.claude/projects/.../abc-123-def.jsonl",
   "status": "complete",
@@ -170,6 +174,8 @@ Each session file contains:
     "git": {
       "sha": "abc123def456",
       "branch": "main",
+      "org": "my-org",
+      "repo": "my-repo",
       "is_repo": true,
       "dirty": true,
       "dirty_files": ["src/foo.ts"],
@@ -216,6 +222,8 @@ Each session file contains:
 | `status` | `in_progress`, `complete`, or `incomplete` (crashed) |
 | `start.source` | How session started: `startup`, `resume`, `clear`, `compact` |
 | `start.git.sha` | Exact commit when session began |
+| `start.git.org` | Organization from git remote (e.g., `my-org`) |
+| `start.git.repo` | Repository from git remote (e.g., `my-repo`) |
 | `end.reason` | How session ended: `logout`, `clear`, `prompt_input_exit`, `other` |
 | `end.duration_seconds` | Total session length in seconds |
 | `end.git.commits_made` | List of commits created during session |
@@ -266,7 +274,7 @@ Use `--global` once to track sessions from all projects:
 ./install.sh --global
 ```
 
-All sessions are stored centrally at `~/.claude-logger/sessions/`. Each session records which project (`cwd`) it was run in.
+All sessions are stored centrally at `~/.claude-logger/sessions/{org}/{repo}/`. Sessions are automatically organized by git org/repo, so you can easily find sessions for any project.
 
 ### Option B: Per-Project Installation
 
@@ -320,16 +328,18 @@ jq -s '[.[].end.git.commits_made // [] | length] | add' .claude/sessions/$CLAUDE
 
 ### Sessions Not Being Created
 
-1. **Check CLAUDE_LOGGER_USER is set:**
+1. **For project-level installs, check CLAUDE_LOGGER_USER is set:**
    ```bash
    echo $CLAUDE_LOGGER_USER
-   # Should output your nickname
+   # Should output your username
    ```
 
-   If empty, add to your shell profile:
+   If empty and you're using project-level install, add to your shell profile:
    ```bash
-   export CLAUDE_LOGGER_USER="your-nickname"
+   export CLAUDE_LOGGER_USER="your-username"
    ```
+
+   Note: Global installs don't require this variable - sessions are organized by git org/repo automatically.
 
 2. **Check jq is installed:**
    ```bash

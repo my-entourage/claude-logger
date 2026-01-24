@@ -33,14 +33,14 @@ git clone https://github.com/my-entourage/claude-logger.git
 cd claude-logger
 
 # 3. Install (choose one)
-./install.sh --global              # User-level: all projects, sessions in ~/.claude-logger/
+./install.sh --global              # User-level: all projects, sessions organized by org/repo
 ./install.sh ~/path/to/project     # Project-level: single project, sessions in project/.claude/
 
-# 4. Add to your shell profile (.bashrc, .zshrc, etc.)
+# 4. For project-level installs, add to your shell profile (.bashrc, .zshrc, etc.)
 export CLAUDE_LOGGER_USER="your-nickname"
 ```
 
-Session data is captured automatically on every Claude Code session when `CLAUDE_LOGGER_USER` is set.
+Session data is captured automatically on every Claude Code session. For project-level installs, `CLAUDE_LOGGER_USER` must be set. Global installs organize by git org/repo automatically.
 
 **[Full Getting Started Guide](docs/GETTING-STARTED.md)** - detailed installation, verification, and usage instructions.
 
@@ -52,10 +52,12 @@ Uses Claude Code's `SessionStart`, `SessionEnd`, and `PreCompact` hooks to captu
 
 **Our enrichment (depends on install mode):**
 
-| Mode | Sessions Stored At |
-|------|-------------------|
-| Global (`--global`) | `~/.claude-logger/sessions/{nickname}/{session_id}.json` |
-| Project (default) | `PROJECT/.claude/sessions/{nickname}/{session_id}.json` |
+| Mode | Sessions Stored At | Username Required |
+|------|-------------------|-------------------|
+| Global (`--global`) | `~/.claude-logger/sessions/{org}/{repo}/{session_id}.json` | No |
+| Project (default) | `PROJECT/.claude/sessions/{username}/{session_id}.json` | Yes |
+
+Global mode extracts org/repo from git remote (e.g., `github.com/my-org/my-repo` → `my-org/my-repo/`). Falls back to `_local/{dirname}` for repos without remote.
 
 Linked by `session_id`. Query both together for complete picture.
 
@@ -65,7 +67,7 @@ The installer also adds `permissions.deny` rules to prevent Claude from accident
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "abc-123",
   "transcript_path": "~/.claude/projects/.../abc-123.jsonl",
   "status": "complete",
@@ -76,6 +78,9 @@ The installer also adds `permissions.deny` rules to prevent Claude from accident
     "git": {
       "sha": "abc123",
       "branch": "main",
+      "org": "my-org",
+      "repo": "my-repo",
+      "is_repo": true,
       "dirty": true,
       "dirty_files": ["src/foo.ts"],
       "dirty_count": 1
