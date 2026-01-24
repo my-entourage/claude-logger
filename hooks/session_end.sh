@@ -241,21 +241,67 @@ calculate_duration() {
 DURATION=$(calculate_duration)
 
 #######################################
+# Capture pre-clear transcript snapshot
+# When reason is "clear", save transcript before it gets cleared
+#######################################
+capture_preclear_transcript() {
+  local transcript_path="$1"
+  local dest_dir="$2"
+  local session_id="$3"
+
+  # Only capture if transcript exists and has content
+  [ -z "$transcript_path" ] && return 1
+  [ ! -f "$transcript_path" ] && return 1
+  [ ! -s "$transcript_path" ] && return 1
+
+  local snapshot_file="$dest_dir/${session_id}_preclear.jsonl"
+  cp "$transcript_path" "$snapshot_file" 2>/dev/null || return 1
+
+  # Return the snapshot filename for JSON update
+  echo "${session_id}_preclear.jsonl"
+}
+
+PRECLEAR_SNAPSHOT=""
+if [ "$EXIT_REASON" = "clear" ]; then
+  PRECLEAR_SNAPSHOT=$(capture_preclear_transcript "$TRANSCRIPT_PATH" "$SESSIONS_BASE" "$SESSION_ID")
+fi
+
+#######################################
 # Update session file (atomic)
 #######################################
 TMP_FILE="$SESSION_FILE.tmp.$$"
 
-jq \
-  --arg timestamp "$TIMESTAMP" \
-  --arg reason "$EXIT_REASON" \
-  --argjson duration "$DURATION" \
-  --argjson git "$GIT_END_DATA" \
-  '.status = "complete" | .end = {
-    timestamp: $timestamp,
-    reason: $reason,
-    duration_seconds: $duration,
-    git: $git
-  }' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null
+# Build the jq update command based on whether we have a pre-clear snapshot
+if [ -n "$PRECLEAR_SNAPSHOT" ]; then
+  jq \
+    --arg timestamp "$TIMESTAMP" \
+    --arg reason "$EXIT_REASON" \
+    --argjson duration "$DURATION" \
+    --argjson git "$GIT_END_DATA" \
+    --arg clear_ts "$TIMESTAMP" \
+    --arg clear_snapshot "$PRECLEAR_SNAPSHOT" \
+    '.status = "complete" | .end = {
+      timestamp: $timestamp,
+      reason: $reason,
+      duration_seconds: $duration,
+      git: $git
+    } | .clear_event = {
+      timestamp: $clear_ts,
+      transcript_snapshot: $clear_snapshot
+    }' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null
+else
+  jq \
+    --arg timestamp "$TIMESTAMP" \
+    --arg reason "$EXIT_REASON" \
+    --argjson duration "$DURATION" \
+    --argjson git "$GIT_END_DATA" \
+    '.status = "complete" | .end = {
+      timestamp: $timestamp,
+      reason: $reason,
+      duration_seconds: $duration,
+      git: $git
+    }' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null
+fi
 
 # Atomic move (only if write succeeded and produced valid JSON)
 if [ -s "$TMP_FILE" ] && jq -e '.' "$TMP_FILE" &>/dev/null; then

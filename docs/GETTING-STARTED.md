@@ -102,6 +102,7 @@ ls -la /path/to/your-project/.claude/hooks/
 # Should show:
 #   session_start.sh
 #   session_end.sh
+#   pre_compact.sh
 ```
 
 Check settings were configured:
@@ -191,6 +192,19 @@ Each session file contains:
       "dirty": false,
       "commits_made": ["def456", "ghi789"]
     }
+  },
+
+  "compaction_events": [
+    {
+      "timestamp": "2025-12-19T21:15:00Z",
+      "trigger": "manual",
+      "transcript_snapshot": "abc-123-def_precompact_001.jsonl"
+    }
+  ],
+
+  "clear_event": {
+    "timestamp": "2025-12-19T21:30:00Z",
+    "transcript_snapshot": "abc-123-def_preclear.jsonl"
   }
 }
 ```
@@ -205,12 +219,42 @@ Each session file contains:
 | `end.reason` | How session ended: `logout`, `clear`, `prompt_input_exit`, `other` |
 | `end.duration_seconds` | Total session length in seconds |
 | `end.git.commits_made` | List of commits created during session |
+| `compaction_events` | Array of pre-compact snapshots (when `/compact` was used) |
+| `clear_event` | Pre-clear snapshot (when `/clear` was used) |
 
 ### Session Statuses
 
 - **in_progress** - Session is currently active
 - **complete** - Session ended normally
 - **incomplete** - Session crashed or was killed (detected on next session start)
+
+### Transcript Snapshots
+
+When you use `/compact` or `/clear`, Claude Logger preserves the full conversation transcript before the operation. This is important because:
+
+- **`/compact`** summarizes the conversation, losing the detailed message history
+- **`/clear`** wipes the entire conversation
+
+**Snapshot files are stored alongside session files:**
+
+| Event | Snapshot File | Description |
+|-------|--------------|-------------|
+| `/compact` | `{session_id}_precompact_001.jsonl` | Full transcript before each compaction |
+| `/clear` | `{session_id}_preclear.jsonl` | Full transcript before clearing |
+
+Multiple compactions in a single session create incrementing files:
+- `session_precompact_001.jsonl`
+- `session_precompact_002.jsonl`
+- etc.
+
+**Example: Viewing a pre-compact snapshot:**
+```bash
+# List all snapshots for a session
+ls $SESSION_DIR/*_precompact_*.jsonl
+
+# View the first pre-compact snapshot
+cat $SESSION_DIR/abc-123_precompact_001.jsonl | jq .
+```
 
 ## Installing to Multiple Projects
 
