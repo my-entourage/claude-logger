@@ -50,7 +50,7 @@ echo '{"type":"user","message":"hello"}' > "$transcript_path"
 # Create session with transcript path
 cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/deleted-transcript.json" << EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "deleted-transcript",
   "transcript_path": "$transcript_path",
   "status": "in_progress",
@@ -100,7 +100,7 @@ git -C "$TEST_TMPDIR" commit -q -m "Initial"
 # Create session with a transcript path that points to wrong location
 cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/wrong-path.json" << EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "wrong-path",
   "transcript_path": "/nonexistent/path/to/transcript.jsonl",
   "status": "in_progress",
@@ -191,7 +191,7 @@ setup_test_env
 for i in $(seq 1 5); do
   cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/rapid-orphan-$i.json" << EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "rapid-orphan-$i",
   "status": "in_progress",
   "start": {"timestamp": "2025-01-01T12:0$i:00Z", "cwd": "$TEST_TMPDIR"}
@@ -242,7 +242,7 @@ start_timestamp="2025-01-01T00:00:00Z"  # 30 hours ago (simulated)
 
 cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/zombie-session.json" << EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "zombie-session",
   "status": "in_progress",
   "start": {
@@ -320,7 +320,7 @@ done
 # Create session that claims to have started at old_sha
 cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/stale-sha-session.json" << EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "stale-sha-session",
   "status": "in_progress",
   "start": {
@@ -374,7 +374,7 @@ git -C "$TEST_TMPDIR" commit -q -m "Initial"
 # Create first session
 cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/ending-session.json" << EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "ending-session",
   "status": "in_progress",
   "start": {
@@ -426,7 +426,7 @@ git -C "$TEST_TMPDIR" commit -q -m "Initial"
 
 cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/other-reason.json" << EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "other-reason",
   "status": "in_progress",
   "start": {
@@ -465,7 +465,7 @@ for user in "alice" "bob"; do
 
   cat > "$TEST_TMPDIR/.claude/sessions/$user/user-session.json" << EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "user-session",
   "status": "in_progress",
   "start": {"timestamp": "2025-01-01T12:00:00Z", "cwd": "$TEST_TMPDIR"}
@@ -506,7 +506,7 @@ git -C "$TEST_TMPDIR" commit -q -m "Initial"
 # Create session with extra fields (simulating legacy/future schema)
 cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/extra-fields.json" << EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "extra-fields",
   "status": "in_progress",
   "legacy_field": "should_be_preserved",
@@ -553,7 +553,7 @@ touch "$transcript_path"  # 0 bytes
 
 cat > "$TEST_TMPDIR/.claude/sessions/$CLAUDE_LOGGER_USER/empty-transcript-session.json" << EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "session_id": "empty-transcript-session",
   "transcript_path": "$transcript_path",
   "status": "in_progress",
